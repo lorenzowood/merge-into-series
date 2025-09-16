@@ -50,10 +50,10 @@ class EpisodeMatcher:
             r'\(\([^)]+\)\)',  # Remove ((dashfhd)) type patterns
             r'\([^)]+\)',      # Remove other parentheses content
             r'\[[^\]]+\]',     # Remove bracket content
-            r'\d{4}',          # Remove years
-            r'(720p|1080p|480p|4K|2160p)',  # Remove quality indicators
-            r'(x264|x265|h264|h265)',       # Remove codec info
-            r'(WEBRip|BluRay|DVDRip|HDTV)', # Remove source info
+            r'\b\d{4}\b',      # Remove years
+            r'\b(720p|1080p|480p|4K|2160p)\b',  # Remove quality indicators
+            r'\b(x264|x265|h264|h265)\b',       # Remove codec info
+            r'\b(WEBRip|BluRay|DVDRip|HDTV)\b', # Remove source info
         ]
 
         for pattern in patterns_to_remove:

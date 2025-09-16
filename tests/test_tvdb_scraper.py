@@ -29,7 +29,7 @@ def test_episode_representation():
     assert "Test Episode" in repr(episode)
 
 
-@patch('requests.Session.get')
+@patch('merge_into_series.tvdb_scraper.requests.Session.get')
 def test_scraper_success(mock_get):
     """Test successful TVDB scraping."""
     # Mock HTML response
@@ -83,18 +83,19 @@ def test_scraper_success(mock_get):
     assert ep2.title == "The Contestant"
 
 
-@patch('requests.Session.get')
-def test_scraper_network_error(mock_get):
+def test_scraper_network_error():
     """Test handling of network errors."""
-    mock_get.side_effect = Exception("Network error")
-
+    # Test that network errors are handled gracefully by mocking at instance level
     scraper = TVDBScraper()
-    episodes = scraper.scrape_episodes('http://example.com')
+
+    # Create a mock session that raises an exception
+    with patch.object(scraper.session, 'get', side_effect=Exception("Network error")):
+        episodes = scraper.scrape_episodes('http://example.com')
 
     assert episodes == []
 
 
-@patch('requests.Session.get')
+@patch('merge_into_series.tvdb_scraper.requests.Session.get')
 def test_scraper_malformed_html(mock_get):
     """Test handling of malformed HTML."""
     mock_response = Mock()
