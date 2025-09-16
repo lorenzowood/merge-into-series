@@ -57,9 +57,13 @@ class Config:
         """Create an example configuration file."""
         example_content = """# merge-into-series configuration file
 # Format: Series Name, Target Path, TVDB URL
-# Example:
-Storyville, /Volumes/TV shows/Organised for Plex/Storyville (1997) {tvdb-82300}, https://thetvdb.com/series/storyville/allseasons/official
-Arena, /Volumes/TV shows/Organised for Plex/Arena (1975) {tvdb-80379}, https://thetvdb.com/series/arena/allseasons/official
+#
+# This assumes your TV shows are organized in /Media/TV/
+# Adjust the paths below to match your setup.
+#
+# Examples:
+Storyville, /Media/TV/Storyville (1997) {tvdb-82300}, https://thetvdb.com/series/storyville/allseasons/official
+Arena, /Media/TV/Arena (1975) {tvdb-80379}, https://thetvdb.com/series/arena/allseasons/official
 """
 
         os.makedirs(self.config_path.parent, exist_ok=True)

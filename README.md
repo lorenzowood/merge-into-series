@@ -19,7 +19,17 @@ This is particularly useful for long-running series like BBC's "Storyville" (199
 
 ## Installation
 
-### From PyPI (when available)
+### Recommended: Using pipx
+```bash
+# Install pipx if you don't have it
+pip install --user pipx
+pipx ensurepath
+
+# Install merge-into-series
+pipx install merge-into-series
+```
+
+### From PyPI
 ```bash
 pip install merge-into-series
 ```
@@ -28,21 +38,10 @@ pip install merge-into-series
 ```bash
 git clone https://github.com/lorenzowood/merge-into-series.git
 cd merge-into-series
-pip install -e .
+pipx install .
 ```
 
-### For ~/.local/bin Installation
-To install the script in your `~/.local/bin` directory (similar to media-renamer and merge-subtitles):
-
-```bash
-# After installation
-mkdir -p ~/.local/bin
-ln -sf $(which merge-into-series) ~/.local/bin/merge-into-series
-
-# Ensure ~/.local/bin is in your PATH
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
+**Why pipx?** It installs the tool in an isolated environment while making it globally available. This prevents conflicts with your system Python packages and is the recommended way to install CLI tools.
 
 ## Configuration
 
@@ -50,8 +49,10 @@ Create a configuration file at `~/.merge-into-series.conf` with the following fo
 
 ```
 # Series Name, Target Path, TVDB URL
-Storyville, /Volumes/TV shows/Organised for Plex/Storyville (1997) {tvdb-82300}, https://thetvdb.com/series/storyville/allseasons/official
-Arena, /Volumes/TV shows/Organised for Plex/Arena (1975) {tvdb-80379}, https://thetvdb.com/series/arena/allseasons/official
+# This assumes your TV shows are organized in /Media/TV/
+# Adjust the paths below to match your setup.
+Storyville, /Media/TV/Storyville (1997) {tvdb-82300}, https://thetvdb.com/series/storyville/allseasons/official
+Arena, /Media/TV/Arena (1975) {tvdb-80379}, https://thetvdb.com/series/arena/allseasons/official
 ```
 
 ### Create Example Configuration
@@ -113,7 +114,7 @@ Storyville - Praying for Armageddon ((dashfhd)).mkv -> S2024E06 Praying For Arma
 Storyville - The Contestant ((dashfhd)).mkv -> S2025E11 The Contestant
 ...
 
-Process to target /Volumes/TV shows/Organised for Plex/Storyville (1997) {tvdb-82300} by
+Process to target /Media/TV/Storyville (1997) {tvdb-82300} by
 1. Moving
 2. Copying
 Choice: 1
