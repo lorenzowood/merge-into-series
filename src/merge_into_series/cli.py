@@ -14,13 +14,13 @@ from .file_operations import FileOperations
 
 
 @click.command()
-@click.argument('series_name')
-@click.argument('source_pattern')
+@click.argument('series_name', required=False)
+@click.argument('source_pattern', required=False)
 @click.option('--config', '-c', help='Path to configuration file')
 @click.option('--dry-run', '-n', is_flag=True, help='Show what would be done without actually doing it')
 @click.option('--threshold', '-t', default=80, help='Fuzzy matching threshold (0-100)')
 @click.option('--create-config', is_flag=True, help='Create example configuration file and exit')
-def main(series_name: str, source_pattern: str, config: Optional[str] = None,
+def main(series_name: Optional[str] = None, source_pattern: Optional[str] = None, config: Optional[str] = None,
          dry_run: bool = False, threshold: int = 80, create_config: bool = False):
     """
     Merge downloaded TV episodes into organized series directories using TVDB metadata.
@@ -33,6 +33,11 @@ def main(series_name: str, source_pattern: str, config: Optional[str] = None,
         config_handler = Config(config)
         config_handler.create_example_config()
         return
+
+    # Validate required arguments if not creating config
+    if not series_name or not source_pattern:
+        click.echo("Error: SERIES_NAME and SOURCE_PATTERN are required unless using --create-config")
+        sys.exit(1)
 
     try:
         # Load configuration
