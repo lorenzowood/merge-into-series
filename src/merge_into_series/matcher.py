@@ -11,7 +11,7 @@ from .tvdb_scraper import Episode
 class EpisodeMatcher:
     """Match filenames to episode data using fuzzy matching."""
 
-    VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.mpg', '.mpeg', '.m4v', '.wmv'}
+    VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.mpg', '.mpeg', '.m4v', '.wmv', '.ts'}
 
     def __init__(self, episodes: List[Episode]):
         self.episodes = episodes
