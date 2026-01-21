@@ -148,6 +148,19 @@ def test_underscore_to_space_conversion(sample_episodes):
     assert "Arena - The Contestant" in title or "The Contestant" in title
 
 
+def test_ampersand_to_and_conversion(sample_episodes):
+    """Test that & is converted to 'and' in title extraction."""
+    matcher = EpisodeMatcher(sample_episodes)
+
+    title = matcher.extract_title_from_filename("Tom & Jerry.mp4")
+    assert "&" not in title
+    assert "Tom and Jerry" in title
+
+    # Test with no spaces around ampersand
+    title = matcher.extract_title_from_filename("Tom&Jerry.mp4")
+    assert "Tom and Jerry" in title
+
+
 def test_find_candidate_matches():
     """Test finding candidate matches with relaxed criteria."""
     episodes = [

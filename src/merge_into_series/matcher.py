@@ -48,6 +48,9 @@ class EpisodeMatcher:
         # Convert underscores to spaces
         title = title.replace('_', ' ')
 
+        # Normalize ampersand to 'and'
+        title = re.sub(r'\s*&\s*', ' and ', title)
+
         # Common patterns to remove
         patterns_to_remove = [
             r'\(\([^)]+\)\)',  # Remove ((dashfhd)) type patterns
