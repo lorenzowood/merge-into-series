@@ -70,6 +70,14 @@ class EpisodeMatcher:
 
         return title
 
+    def _normalize_for_matching(self, text: str) -> str:
+        """Normalize text for matching purposes (not for output)."""
+        # Convert & to 'and' for matching
+        normalized = re.sub(r'\s*&\s*', ' and ', text)
+        # Normalize whitespace
+        normalized = re.sub(r'\s+', ' ', normalized).strip()
+        return normalized.lower()
+
     def match_episode(self, filename: str, threshold: int = 80) -> List[Tuple[Episode, int]]:
         """Find matching episodes for a filename."""
         extracted_title = self.extract_title_from_filename(filename)
@@ -81,27 +89,37 @@ class EpisodeMatcher:
             if len(parts) == 2:
                 extracted_title = parts[1].strip()
 
-        matches = []
-        episode_titles = [ep.title for ep in self.episodes]
+        # Normalize the extracted title for matching
+        normalized_extracted = self._normalize_for_matching(extracted_title)
 
-        # Use fuzzy matching to find similar titles
+        matches = []
+
+        # Create normalized title -> episode mapping for matching
+        normalized_to_episode = {}
+        normalized_titles = []
+        for ep in self.episodes:
+            norm_title = self._normalize_for_matching(ep.title)
+            normalized_to_episode[norm_title] = ep
+            normalized_titles.append(norm_title)
+
+        # Use fuzzy matching with normalized titles
         fuzzy_matches = process.extract(
-            extracted_title,
-            episode_titles,
+            normalized_extracted,
+            normalized_titles,
             scorer=fuzz.token_sort_ratio,
             limit=10
         )
 
-        for match_title, score in fuzzy_matches:
+        for norm_match_title, score in fuzzy_matches:
             if score >= threshold:
-                # Find the episode with this title
-                episode = next(ep for ep in self.episodes if ep.title == match_title)
+                episode = normalized_to_episode[norm_match_title]
                 matches.append((episode, score))
 
         # Also try partial matching (in case the title is contained within filename)
         for episode in self.episodes:
-            if episode.title.lower() in extracted_title.lower():
-                score = fuzz.partial_ratio(episode.title.lower(), extracted_title.lower())
+            norm_ep_title = self._normalize_for_matching(episode.title)
+            if norm_ep_title in normalized_extracted:
+                score = fuzz.partial_ratio(norm_ep_title, normalized_extracted)
                 if score >= threshold:
                     # Avoid duplicates
                     if not any(ep.title == episode.title for ep, _ in matches):
@@ -133,28 +151,39 @@ class EpisodeMatcher:
             if len(parts) == 2:
                 extracted_title = parts[1].strip()
 
+        # Normalize for matching
+        normalized_extracted = self._normalize_for_matching(extracted_title)
+
         candidates = {}  # episode.title -> (episode, score)
 
-        # Strategy 1: Lower threshold fuzzy matching
-        episode_titles = [ep.title for ep in self.episodes]
+        # Create normalized title -> episode mapping for matching
+        normalized_to_episode = {}
+        normalized_titles = []
+        for ep in self.episodes:
+            norm_title = self._normalize_for_matching(ep.title)
+            normalized_to_episode[norm_title] = ep
+            normalized_titles.append(norm_title)
+
+        # Strategy 1: Lower threshold fuzzy matching with normalized titles
         fuzzy_matches = process.extract(
-            extracted_title,
-            episode_titles,
+            normalized_extracted,
+            normalized_titles,
             scorer=fuzz.token_sort_ratio,
             limit=limit * 2
         )
 
-        for match_title, score in fuzzy_matches:
+        for norm_match_title, score in fuzzy_matches:
             if score >= 50:  # Lower threshold for candidates
-                episode = next(ep for ep in self.episodes if ep.title == match_title)
+                episode = normalized_to_episode[norm_match_title]
                 if episode.title not in candidates or candidates[episode.title][1] < score:
                     candidates[episode.title] = (episode, score)
 
-        # Strategy 2: Word subsequence matching
-        filename_words = self._extract_words(extracted_title.lower())
+        # Strategy 2: Word subsequence matching (using normalized text)
+        filename_words = self._extract_words(normalized_extracted)
 
         for episode in self.episodes:
-            episode_words = self._extract_words(episode.title.lower())
+            norm_ep_title = self._normalize_for_matching(episode.title)
+            episode_words = self._extract_words(norm_ep_title)
             if not episode_words:
                 continue
 

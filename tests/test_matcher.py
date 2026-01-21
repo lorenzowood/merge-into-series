@@ -161,6 +161,32 @@ def test_ampersand_to_and_conversion(sample_episodes):
     assert "Tom and Jerry" in title
 
 
+def test_ampersand_and_matching():
+    """Test that 'and' in filename matches '&' in episode title and vice versa."""
+    episodes = [
+        Episode(2024, 1, "The Burger & the King: The Life & Cuisine of Elvis Presley"),
+        Episode(2024, 2, "Tom & Jerry"),
+    ]
+    matcher = EpisodeMatcher(episodes)
+
+    # Filename with 'and' should match episode with '&'
+    # Use threshold 50 since the filename is shorter than the full title
+    matches = matcher.match_episode("The_Burger_and_the_King.mp4", threshold=50)
+    assert len(matches) >= 1
+    assert "Burger" in matches[0][0].title
+    assert "&" in matches[0][0].title  # Original title preserved with &
+
+    # Also test candidate matching (default threshold 50)
+    candidates = matcher.find_candidate_matches("The_Burger_and_the_King.mp4")
+    assert len(candidates) >= 1
+    assert "Burger" in candidates[0][0].title
+
+    # Test exact match with '&' vs 'and'
+    matches = matcher.match_episode("Tom_and_Jerry.mp4", threshold=80)
+    assert len(matches) >= 1
+    assert matches[0][0].title == "Tom & Jerry"  # Original with & preserved
+
+
 def test_find_candidate_matches():
     """Test finding candidate matches with relaxed criteria."""
     episodes = [
