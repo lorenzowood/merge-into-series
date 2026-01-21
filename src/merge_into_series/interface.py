@@ -13,7 +13,8 @@ class InteractiveInterface:
     def __init__(self):
         self.pending_operations = []
 
-    def get_user_matches(self, files_and_matches: Dict[str, List[Tuple[Episode, int]]]) -> Dict[str, Optional[Episode]]:
+    def get_user_matches(self, files_and_matches: Dict[str, List[Tuple[Episode, int]]],
+                         matcher: Optional['EpisodeMatcher'] = None) -> Dict[str, Optional[Episode]]:
         """Interactively get user confirmation for episode matches."""
         final_matches = {}
 
@@ -62,29 +63,70 @@ class InteractiveInterface:
                         print("Invalid input. Please enter a number.")
                         continue
             else:
-                # No matches found
-                print(f"{filename} -> No matches found")
-                print("1. Manual entry")
-                print("2. Skip")
+                # No confident matches found - try to find candidates
+                candidates = []
+                if matcher:
+                    candidates = matcher.find_candidate_matches(filename, limit=5)
 
-                while True:
-                    try:
-                        choice = input("Choice: ").strip()
-                        if choice == "1":
-                            manual_episode = self._get_manual_episode_entry()
-                            if manual_episode:
-                                final_matches[filename] = manual_episode
-                            else:
+                if candidates:
+                    print(f"\n{Path(filename).name} -> No exact match. Possible matches:")
+                    for i, (episode, score) in enumerate(candidates, 1):
+                        print(f"  {i}. {episode.season_episode_code} {episode.title} ({score}%)")
+                    print(f"  {len(candidates) + 1}. Manual entry")
+                    print(f"  {len(candidates) + 2}. Skip")
+
+                    while True:
+                        try:
+                            choice = input("Choice: ").strip()
+                            if not choice:
+                                continue
+
+                            choice_num = int(choice)
+                            if 1 <= choice_num <= len(candidates):
+                                selected_episode = candidates[choice_num - 1][0]
+                                final_matches[filename] = selected_episode
+                                break
+                            elif choice_num == len(candidates) + 1:
+                                manual_episode = self._get_manual_episode_entry()
+                                if manual_episode:
+                                    final_matches[filename] = manual_episode
+                                else:
+                                    final_matches[filename] = None
+                                break
+                            elif choice_num == len(candidates) + 2:
                                 final_matches[filename] = None
-                            break
-                        elif choice == "2":
-                            final_matches[filename] = None
-                            break
-                        else:
-                            print("Invalid choice. Please enter 1 or 2.")
-                    except KeyboardInterrupt:
-                        print("\nOperation cancelled.")
-                        return {}
+                                break
+                            else:
+                                print("Invalid choice. Please try again.")
+                        except ValueError:
+                            print("Invalid input. Please enter a number.")
+                            continue
+                        except KeyboardInterrupt:
+                            print("\nOperation cancelled.")
+                            return {}
+                else:
+                    print(f"\n{Path(filename).name} -> No matches found")
+                    print("  1. Manual entry")
+                    print("  2. Skip")
+
+                    while True:
+                        try:
+                            choice = input("Choice: ").strip()
+                            if choice == "1":
+                                manual_episode = self._get_manual_episode_entry()
+                                if manual_episode:
+                                    final_matches[filename] = manual_episode
+                                else:
+                                    final_matches[filename] = None
+                                break
+                            elif choice == "2":
+                                final_matches[filename] = None
+                                break
+                            else:
+                                print("Invalid choice. Please enter 1 or 2.")
+                        except KeyboardInterrupt:
+                            print("\nOperation cancelled.")
+                            return {}
 
         return final_matches
 

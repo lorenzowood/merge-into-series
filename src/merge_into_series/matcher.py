@@ -45,6 +45,9 @@ class EpisodeMatcher:
         # Remove file extension
         title = Path(filename).stem
 
+        # Convert underscores to spaces
+        title = title.replace('_', ' ')
+
         # Common patterns to remove
         patterns_to_remove = [
             r'\(\([^)]+\)\)',  # Remove ((dashfhd)) type patterns
@@ -111,6 +114,83 @@ class EpisodeMatcher:
         if matches:
             return matches[0][0]
         return None
+
+    def find_candidate_matches(self, filename: str, limit: int = 5) -> List[Tuple[Episode, int]]:
+        """Find candidate matches using relaxed matching criteria.
+
+        Uses multiple strategies:
+        1. Lower threshold fuzzy matching (50 instead of 80)
+        2. Word subsequence matching - checks if episode title words appear in filename in order
+        """
+        extracted_title = self.extract_title_from_filename(filename)
+
+        # Try to remove common series prefixes
+        if ' - ' in extracted_title:
+            parts = extracted_title.split(' - ', 1)
+            if len(parts) == 2:
+                extracted_title = parts[1].strip()
+
+        candidates = {}  # episode.title -> (episode, score)
+
+        # Strategy 1: Lower threshold fuzzy matching
+        episode_titles = [ep.title for ep in self.episodes]
+        fuzzy_matches = process.extract(
+            extracted_title,
+            episode_titles,
+            scorer=fuzz.token_sort_ratio,
+            limit=limit * 2
+        )
+
+        for match_title, score in fuzzy_matches:
+            if score >= 50:  # Lower threshold for candidates
+                episode = next(ep for ep in self.episodes if ep.title == match_title)
+                if episode.title not in candidates or candidates[episode.title][1] < score:
+                    candidates[episode.title] = (episode, score)
+
+        # Strategy 2: Word subsequence matching
+        filename_words = self._extract_words(extracted_title.lower())
+
+        for episode in self.episodes:
+            episode_words = self._extract_words(episode.title.lower())
+            if not episode_words:
+                continue
+
+            # Check what fraction of episode words appear in filename in order
+            subsequence_score = self._word_subsequence_score(episode_words, filename_words)
+
+            if subsequence_score >= 60:  # At least 60% of words match in order
+                # Convert to 0-100 scale
+                if episode.title not in candidates or candidates[episode.title][1] < subsequence_score:
+                    candidates[episode.title] = (episode, subsequence_score)
+
+        # Sort by score and return top candidates
+        sorted_candidates = sorted(candidates.values(), key=lambda x: x[1], reverse=True)
+        return sorted_candidates[:limit]
+
+    def _extract_words(self, text: str) -> List[str]:
+        """Extract meaningful words from text, ignoring short words and numbers."""
+        words = re.findall(r'[a-z]+', text.lower())
+        # Filter out very short words (1-2 chars) that are likely noise
+        return [w for w in words if len(w) > 2]
+
+    def _word_subsequence_score(self, episode_words: List[str], filename_words: List[str]) -> int:
+        """Calculate what percentage of episode words appear in filename words in order."""
+        if not episode_words:
+            return 0
+
+        matches = 0
+        filename_idx = 0
+
+        for episode_word in episode_words:
+            # Look for this word in remaining filename words
+            while filename_idx < len(filename_words):
+                if filename_words[filename_idx] == episode_word:
+                    matches += 1
+                    filename_idx += 1
+                    break
+                filename_idx += 1
+
+        return int((matches / len(episode_words)) * 100)
 
     def get_filename_for_episode(self, episode: Episode, original_filename: str) -> str:
         """Generate a new filename for an episode."""

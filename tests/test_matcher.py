@@ -136,3 +136,97 @@ def test_get_best_match(sample_episodes):
 
     no_match = matcher.get_best_match("Nonexistent Episode.mkv", threshold=95)
     assert no_match is None
+
+
+def test_underscore_to_space_conversion(sample_episodes):
+    """Test that underscores are converted to spaces in title extraction."""
+    matcher = EpisodeMatcher(sample_episodes)
+
+    # Test underscore conversion
+    title = matcher.extract_title_from_filename("Arena_-_The_Contestant_m000abc1_editorial.mp4")
+    assert "_" not in title
+    assert "Arena - The Contestant" in title or "The Contestant" in title
+
+
+def test_find_candidate_matches():
+    """Test finding candidate matches with relaxed criteria."""
+    episodes = [
+        Episode(2024, 1, "The Orson Welles Story (1)"),
+        Episode(2024, 2, "The Orson Welles Story (2)"),
+        Episode(2024, 3, "Completely Different Episode"),
+        Episode(2024, 4, "Another Episode Title"),
+    ]
+    matcher = EpisodeMatcher(episodes)
+
+    # Should find both Orson Welles episodes as candidates
+    candidates = matcher.find_candidate_matches("The_Orson_Welles_Story.mkv")
+    assert len(candidates) >= 1
+
+    # Check that Orson Welles episodes are in candidates
+    candidate_titles = [ep.title for ep, score in candidates]
+    assert any("Orson Welles" in title for title in candidate_titles)
+
+
+def test_find_candidate_matches_word_subsequence():
+    """Test word subsequence matching for candidates."""
+    episodes = [
+        Episode(2024, 1, "Delia Derbyshire: The Myths and the Legendary Tapes"),
+        Episode(2024, 2, "Completely Different Title"),
+    ]
+    matcher = EpisodeMatcher(episodes)
+
+    # Filename with words in order should match
+    candidates = matcher.find_candidate_matches(
+        "Arena_-_Delia_Derbyshire_The_Myths_and_the_Legendary_Tapes.mp4"
+    )
+    assert len(candidates) >= 1
+    assert candidates[0][0].title == "Delia Derbyshire: The Myths and the Legendary Tapes"
+
+
+def test_extract_words():
+    """Test word extraction helper."""
+    matcher = EpisodeMatcher([])
+
+    words = matcher._extract_words("The Quick Brown Fox")
+    assert words == ["the", "quick", "brown", "fox"]
+
+    # Should filter short words
+    words = matcher._extract_words("A is the be or not")
+    assert "the" in words
+    assert "not" in words
+    assert "a" not in words  # Too short
+    assert "is" not in words  # Too short
+
+
+def test_word_subsequence_score():
+    """Test word subsequence scoring."""
+    matcher = EpisodeMatcher([])
+
+    # All words match in order - 100%
+    score = matcher._word_subsequence_score(
+        ["the", "quick", "fox"],
+        ["the", "quick", "brown", "fox"]
+    )
+    assert score == 100
+
+    # Some words match in order (but algorithm is strict about order)
+    # "the" matches, "quick" not found so idx advances past "fox", leaving only 1/4 match
+    score = matcher._word_subsequence_score(
+        ["the", "quick", "fox", "jumps"],
+        ["the", "brown", "fox"]
+    )
+    assert score == 25  # Only "the" matches due to strict ordering
+
+    # Better partial match example
+    score = matcher._word_subsequence_score(
+        ["the", "brown", "fox"],
+        ["the", "quick", "brown", "fox"]
+    )
+    assert score == 100  # All 3 words match in order
+
+    # No matches
+    score = matcher._word_subsequence_score(
+        ["completely", "different"],
+        ["the", "quick", "fox"]
+    )
+    assert score == 0

@@ -85,7 +85,7 @@ def main(series_name: Optional[str] = None, source_pattern: Optional[str] = None
 
         # Interactive matching
         interface = InteractiveInterface()
-        final_matches = interface.get_user_matches(files_and_matches)
+        final_matches = interface.get_user_matches(files_and_matches, matcher)
 
         if not final_matches:
             print("No matches selected. Exiting.")
