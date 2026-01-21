@@ -20,8 +20,9 @@ from .file_operations import FileOperations
 @click.option('--dry-run', '-n', is_flag=True, help='Show what would be done without actually doing it')
 @click.option('--threshold', '-t', default=80, help='Fuzzy matching threshold (0-100)')
 @click.option('--create-config', is_flag=True, help='Create example configuration file and exit')
+@click.option('--overwrite', '-o', is_flag=True, help='Overwrite existing files without prompting')
 def main(series_name: Optional[str] = None, source_pattern: Optional[str] = None, config: Optional[str] = None,
-         dry_run: bool = False, threshold: int = 80, create_config: bool = False):
+         dry_run: bool = False, threshold: int = 80, create_config: bool = False, overwrite: bool = False):
     """
     Merge downloaded TV episodes into organized series directories using TVDB metadata.
 
@@ -96,7 +97,7 @@ def main(series_name: Optional[str] = None, source_pattern: Optional[str] = None
             sys.exit(0)
 
         # Execute file operations
-        file_ops = FileOperations(dry_run=dry_run)
+        file_ops = FileOperations(dry_run=dry_run, overwrite=overwrite)
         operations = interface.get_pending_operations()
 
         if dry_run:

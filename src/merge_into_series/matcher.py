@@ -118,7 +118,8 @@ class EpisodeMatcher:
         extension = original_path.suffix
 
         # Clean the episode title for use in filename
-        clean_title = re.sub(r'[<>:"/\\|?*]', '', episode.title)
+        clean_title = episode.title.replace(':', ' -')  # Replace colon with space-dash
+        clean_title = re.sub(r'[<>"/\\|?*]', '', clean_title)  # Remove other illegal chars
         clean_title = re.sub(r'\s+', ' ', clean_title).strip()
 
         return f"{episode.season_episode_code} {clean_title}{extension}"

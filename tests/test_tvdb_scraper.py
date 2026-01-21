@@ -2,6 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, patch
+import requests
 
 from merge_into_series.tvdb_scraper import TVDBScraper, Episode
 
@@ -88,8 +89,8 @@ def test_scraper_network_error():
     # Test that network errors are handled gracefully by mocking at instance level
     scraper = TVDBScraper()
 
-    # Create a mock session that raises an exception
-    with patch.object(scraper.session, 'get', side_effect=Exception("Network error")):
+    # Create a mock session that raises a requests exception
+    with patch.object(scraper.session, 'get', side_effect=requests.RequestException("Network error")):
         episodes = scraper.scrape_episodes('http://example.com')
 
     assert episodes == []
