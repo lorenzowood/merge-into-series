@@ -102,7 +102,8 @@ class FileOperations:
                 shutil.move(str(source_path), str(target_path))
             elif op_type == 'copy':
                 print(f"Copying {source_path.name} -> {episode.season_episode_code} {episode.title}")
-                shutil.copy2(str(source_path), str(target_path))
+                # Use shutil.copy instead of copy2 to avoid metadata issues on network filesystems
+                shutil.copy(str(source_path), str(target_path))
             else:
                 print(f"Error: Unknown operation type: {op_type}")
                 return False
