@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "merge-into-series"
-version = "0.1.4"
+version = "0.1.5"
 description = "A utility to merge downloaded TV episodes into organized series directories using TVDB metadata"
 readme = "README.md"
 requires-python = ">=3.8"
