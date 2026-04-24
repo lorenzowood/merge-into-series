@@ -10,7 +10,7 @@ from typing import List, Dict, Optional
 
 
 VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.mpg', '.mpeg', '.m4v', '.wmv', '.ts'}
-_EPISODE_CODE_RE = re.compile(r'^S(\d+)E(\d+)', re.IGNORECASE)
+_EPISODE_CODE_RE = re.compile(r'S(\d+)E(\d+)', re.IGNORECASE)
 
 
 class FileOperations:
@@ -184,7 +184,7 @@ class FileOperations:
                 skipped += 1
                 continue
 
-            m = _EPISODE_CODE_RE.match(video_file.stem)
+            m = _EPISODE_CODE_RE.search(video_file.stem)
             if not m:
                 print(f"Warning: Could not parse episode code from {video_file.name} — skipping")
                 unmatched += 1

@@ -454,8 +454,20 @@ def test_update_nfo_dry_run_writes_nothing(target_with_videos, episodes_2024):
     assert not (target_with_videos / "Season 2024" / "S2024E07 The Contestant.nfo").exists()
 
 
+def test_update_nfo_episode_code_not_at_start_of_filename(target_with_videos, episodes_2024):
+    """Episode code anywhere in the filename is found (e.g. 'Series - S2024E06 - Title.mkv')."""
+    season_dir = target_with_videos / "Season 2024"
+    # Add files with series-name prefix, as Plex might have them
+    (season_dir / "My Show - S2024E06 - Praying for Armageddon.mkv").write_text("fake")
+
+    file_ops = FileOperations()
+    file_ops.update_nfo_files(str(target_with_videos), episodes_2024, overwrite=False)
+
+    assert (season_dir / "My Show - S2024E06 - Praying for Armageddon.nfo").exists()
+
+
 def test_update_nfo_unrecognised_filename_does_not_crash(target_with_videos, episodes_2024):
-    """Files without an SxxExx prefix are skipped with a warning, not a crash."""
+    """Files without any SxxExx code are skipped with a warning, not a crash."""
     (target_with_videos / "Season 2024" / "some_random_file.mkv").write_text("fake")
 
     file_ops = FileOperations()

@@ -239,6 +239,9 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
+### v0.1.9
+- Fix `--update-nfo` failing to parse episode codes in filenames that start with a series name prefix (e.g. `Series - S01E01 - Title.mkv`)
+
 ### v0.1.8
 - Add `--update-nfo=missing/all` to retroactively generate NFO files in an existing library
 
