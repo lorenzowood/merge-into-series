@@ -2,6 +2,8 @@
 
 import os
 import shutil
+import xml.sax.saxutils as saxutils
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 
@@ -9,9 +11,46 @@ from typing import List, Dict, Optional
 class FileOperations:
     """Handle file move and copy operations."""
 
-    def __init__(self, dry_run: bool = False, overwrite: bool = False):
+    def __init__(self, dry_run: bool = False, overwrite: bool = False, generate_nfo: bool = True):
         self.dry_run = dry_run
         self.overwrite = overwrite
+        self.generate_nfo = generate_nfo
+
+    def _normalise_air_date(self, air_date: str) -> str:
+        """Convert air date to ISO 8601 (YYYY-MM-DD). Returns input unchanged if unrecognised."""
+        if not air_date:
+            return air_date
+        for fmt in ("%B %d, %Y", "%b %d, %Y", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(air_date, fmt).strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+        return air_date
+
+    def _generate_nfo_content(self, episode) -> str:
+        """Generate NFO XML content for an episode."""
+        def esc(text: str) -> str:
+            return saxutils.escape(text) if text else ''
+
+        lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<episodedetails>',
+            f'  <title>{esc(episode.title)}</title>',
+            f'  <plot>{esc(episode.description)}</plot>',
+            f'  <aired>{esc(self._normalise_air_date(episode.air_date))}</aired>',
+            f'  <season>{episode.season}</season>',
+            f'  <episode>{episode.episode}</episode>',
+            '</episodedetails>',
+        ]
+        return '\n'.join(lines)
+
+    def _write_nfo_file(self, target_video_path: Path, episode) -> None:
+        """Write a .nfo sidecar file alongside the video file."""
+        nfo_path = target_video_path.with_suffix('.nfo')
+        try:
+            nfo_path.write_text(self._generate_nfo_content(episode), encoding='utf-8')
+        except Exception as e:
+            print(f"Warning: Could not write NFO file {nfo_path}: {e}")
 
     def execute_operations(self, operations: List[Dict]) -> bool:
         """Execute a list of file operations."""
@@ -95,6 +134,8 @@ class FileOperations:
         try:
             if self.dry_run:
                 print(f"[DRY RUN] Would {op_type} {source_path} -> {target_path}")
+                if self.generate_nfo:
+                    print(f"[DRY RUN] Would write NFO file: {target_path.with_suffix('.nfo')}")
                 return True
 
             if op_type == 'move':
@@ -107,6 +148,9 @@ class FileOperations:
             else:
                 print(f"Error: Unknown operation type: {op_type}")
                 return False
+
+            if self.generate_nfo:
+                self._write_nfo_file(target_path, episode)
 
             return True
 

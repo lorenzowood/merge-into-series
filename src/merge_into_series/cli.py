@@ -21,8 +21,14 @@ from .file_operations import FileOperations
 @click.option('--threshold', '-t', default=80, help='Fuzzy matching threshold (0-100)')
 @click.option('--create-config', is_flag=True, help='Create example configuration file and exit')
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite existing files without prompting')
+@click.option('--generate-nfo', default=True, show_default=True, type=bool,
+              help='Generate .nfo metadata sidecar files alongside video files. '
+                   'These let Plex find episode title, summary, and air date for series '
+                   'with non-standard season numbers (e.g. year-based seasons). '
+                   'Use --generate-nfo=false to disable.')
 def main(series_name: Optional[str] = None, source_pattern: Optional[str] = None, config: Optional[str] = None,
-         dry_run: bool = False, threshold: int = 80, create_config: bool = False, overwrite: bool = False):
+         dry_run: bool = False, threshold: int = 80, create_config: bool = False, overwrite: bool = False,
+         generate_nfo: bool = True):
     """
     Merge downloaded TV episodes into organized series directories using TVDB metadata.
 
@@ -97,7 +103,7 @@ def main(series_name: Optional[str] = None, source_pattern: Optional[str] = None
             sys.exit(0)
 
         # Execute file operations
-        file_ops = FileOperations(dry_run=dry_run, overwrite=overwrite)
+        file_ops = FileOperations(dry_run=dry_run, overwrite=overwrite, generate_nfo=generate_nfo)
         operations = interface.get_pending_operations()
 
         if dry_run:
