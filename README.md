@@ -14,6 +14,7 @@ This is particularly useful for long-running series like BBC's "Storyville" (199
 - **Interactive confirmation**: Review matches before processing with options to manually correct or skip files
 - **Flexible operations**: Choose between moving or copying files to preserve originals
 - **Season organization**: Automatically creates season directories (e.g., "Season 01", "Season 2024")
+- **Plex metadata**: Generates `.nfo` sidecar files so Plex displays episode titles, summaries, and air dates
 - **Safe processing**: Dry-run mode and confirmation prompts prevent accidental operations
 - **Configuration-based**: Simple text file configuration for series definitions
 
@@ -90,6 +91,8 @@ merge-into-series --dry-run storyville Storyville
 - `--config, -c`: Path to configuration file (default: `~/.merge-into-series.conf`)
 - `--dry-run, -n`: Show what would be done without actually doing it
 - `--threshold, -t`: Fuzzy matching threshold 0-100 (default: 80)
+- `--generate-nfo`: Generate `.nfo` metadata sidecar files alongside video files (default: true). Use `--generate-nfo=false` to disable.
+- `--overwrite, -o`: Overwrite existing files without prompting
 - `--create-config`: Create example configuration file and exit
 - `--help`: Show help message
 
@@ -132,6 +135,7 @@ All operations completed successfully!
 4. **Fuzzy Matching**: Uses intelligent text matching to pair filenames with episode titles
 5. **Interactive Review**: Presents matches for user confirmation and allows manual corrections
 6. **File Operations**: Moves or copies files to organized season directories with proper naming
+7. **NFO Generation**: Writes a `.nfo` metadata sidecar alongside each video file for Plex
 
 ## Supported File Formats
 
@@ -151,15 +155,33 @@ Examples:
 Target Directory/
 ├── Season 2022/
 │   ├── S2022E01 Episode Title.mkv
+│   ├── S2022E01 Episode Title.nfo
 │   └── S2022E19 The Fire Within.mkv
+│   └── S2022E19 The Fire Within.nfo
 ├── Season 2024/
-│   └── S2024E06 Praying for Armageddon.mkv
+│   ├── S2024E06 Praying for Armageddon.mkv
+│   └── S2024E06 Praying for Armageddon.nfo
 └── Season 2025/
-    ├── S2025E01 Your Fat Friend.mkv
-    ├── S2025E09 The Jackal Speaks.mkv
-    ├── S2025E10 Wedding Night.mkv
-    └── S2025E11 The Contestant.mkv
+    ├── S2025E11 The Contestant.mkv
+    └── S2025E11 The Contestant.nfo
 ```
+
+### NFO Sidecar Files
+
+Each video file is accompanied by a `.nfo` file containing episode metadata in a format Plex understands:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<episodedetails>
+  <title>Praying for Armageddon</title>
+  <plot>A documentary following evangelical Christians...</plot>
+  <aired>2024-03-15</aired>
+  <season>2024</season>
+  <episode>6</episode>
+</episodedetails>
+```
+
+This is particularly useful for long-running series where Plex cannot identify episodes from the season number alone (e.g. year-based seasons like S1964E04). Use `--generate-nfo=false` to skip NFO generation.
 
 ## Error Handling
 
@@ -215,6 +237,10 @@ flake8 src/ tests/
 MIT License - see LICENSE file for details.
 
 ## Changelog
+
+### v0.1.7
+- Generate `.nfo` sidecar files for Plex episode metadata (title, summary, air date)
+- Normalise TVDB date format to ISO 8601 in NFO output
 
 ### v0.1.0
 - Initial release
