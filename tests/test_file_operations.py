@@ -373,3 +373,99 @@ def test_nfo_filename_matches_video_stem(temp_files):
     nfo_file = target_season_dir / 'S1985E03 Coals to Newcastle.nfo'
     assert video_file.exists()
     assert nfo_file.exists()
+
+
+# --- update_nfo_files tests ---
+
+@pytest.fixture
+def target_with_videos():
+    """Target directory pre-populated with renamed video files (simulating already-merged episodes)."""
+    with tempfile.TemporaryDirectory() as target_dir:
+        target = Path(target_dir)
+        season_dir = target / "Season 2024"
+        season_dir.mkdir()
+        (season_dir / "S2024E06 Praying for Armageddon.mkv").write_text("fake")
+        (season_dir / "S2024E07 The Contestant.mkv").write_text("fake")
+        yield target
+
+
+@pytest.fixture
+def episodes_2024():
+    return [
+        Episode(2024, 6, "Praying for Armageddon",
+                air_date="March 15, 2024", description="A documentary."),
+        Episode(2024, 7, "The Contestant",
+                air_date="March 22, 2024", description="Another documentary."),
+    ]
+
+
+def test_update_nfo_creates_missing(target_with_videos, episodes_2024):
+    """update_nfo_files writes NFOs for video files that lack them."""
+    file_ops = FileOperations()
+    file_ops.update_nfo_files(str(target_with_videos), episodes_2024, overwrite=False)
+
+    assert (target_with_videos / "Season 2024" / "S2024E06 Praying for Armageddon.nfo").exists()
+    assert (target_with_videos / "Season 2024" / "S2024E07 The Contestant.nfo").exists()
+
+
+def test_update_nfo_nfo_content_is_correct(target_with_videos, episodes_2024):
+    """NFO files written by update_nfo_files contain correct metadata."""
+    file_ops = FileOperations()
+    file_ops.update_nfo_files(str(target_with_videos), episodes_2024, overwrite=False)
+
+    content = (target_with_videos / "Season 2024" / "S2024E06 Praying for Armageddon.nfo").read_text(encoding='utf-8')
+    assert '<title>Praying for Armageddon</title>' in content
+    assert '<aired>2024-03-15</aired>' in content
+    assert '<plot>A documentary.</plot>' in content
+
+
+def test_update_nfo_skips_existing(target_with_videos, episodes_2024):
+    """update_nfo_files does not overwrite an existing NFO when overwrite=False."""
+    season_dir = target_with_videos / "Season 2024"
+    existing_nfo = season_dir / "S2024E06 Praying for Armageddon.nfo"
+    existing_nfo.write_text("original content", encoding='utf-8')
+
+    file_ops = FileOperations()
+    file_ops.update_nfo_files(str(target_with_videos), episodes_2024, overwrite=False)
+
+    assert existing_nfo.read_text(encoding='utf-8') == "original content"
+
+
+def test_update_nfo_all_overwrites_existing(target_with_videos, episodes_2024):
+    """update_nfo_files overwrites existing NFOs when overwrite=True."""
+    season_dir = target_with_videos / "Season 2024"
+    existing_nfo = season_dir / "S2024E06 Praying for Armageddon.nfo"
+    existing_nfo.write_text("original content", encoding='utf-8')
+
+    file_ops = FileOperations()
+    file_ops.update_nfo_files(str(target_with_videos), episodes_2024, overwrite=True)
+
+    content = existing_nfo.read_text(encoding='utf-8')
+    assert content != "original content"
+    assert '<title>Praying for Armageddon</title>' in content
+
+
+def test_update_nfo_dry_run_writes_nothing(target_with_videos, episodes_2024):
+    """Dry run mode reports what would be written but creates no files."""
+    file_ops = FileOperations(dry_run=True)
+    file_ops.update_nfo_files(str(target_with_videos), episodes_2024, overwrite=False)
+
+    assert not (target_with_videos / "Season 2024" / "S2024E06 Praying for Armageddon.nfo").exists()
+    assert not (target_with_videos / "Season 2024" / "S2024E07 The Contestant.nfo").exists()
+
+
+def test_update_nfo_unrecognised_filename_does_not_crash(target_with_videos, episodes_2024):
+    """Files without an SxxExx prefix are skipped with a warning, not a crash."""
+    (target_with_videos / "Season 2024" / "some_random_file.mkv").write_text("fake")
+
+    file_ops = FileOperations()
+    result = file_ops.update_nfo_files(str(target_with_videos), episodes_2024, overwrite=False)
+    assert result is True
+
+
+def test_update_nfo_episode_not_in_list_does_not_crash(target_with_videos):
+    """Video file whose episode code isn't in the episode list is skipped gracefully."""
+    file_ops = FileOperations()
+    # Pass empty episode list — nothing matches
+    result = file_ops.update_nfo_files(str(target_with_videos), [], overwrite=False)
+    assert result is True

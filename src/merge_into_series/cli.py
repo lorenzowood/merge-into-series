@@ -26,9 +26,13 @@ from .file_operations import FileOperations
                    'These let Plex find episode title, summary, and air date for series '
                    'with non-standard season numbers (e.g. year-based seasons). '
                    'Use --generate-nfo=false to disable.')
+@click.option('--update-nfo', type=click.Choice(['missing', 'all']), default=None,
+              help='Scan the target directory and generate .nfo files for already-merged episodes. '
+                   '"missing" adds NFOs only where absent; "all" overwrites existing ones too. '
+                   'Cannot be combined with SOURCE_PATTERN.')
 def main(series_name: Optional[str] = None, source_pattern: Optional[str] = None, config: Optional[str] = None,
          dry_run: bool = False, threshold: int = 80, create_config: bool = False, overwrite: bool = False,
-         generate_nfo: bool = True):
+         generate_nfo: bool = True, update_nfo: Optional[str] = None):
     """
     Merge downloaded TV episodes into organized series directories using TVDB metadata.
 
@@ -41,9 +45,60 @@ def main(series_name: Optional[str] = None, source_pattern: Optional[str] = None
         config_handler.create_example_config()
         return
 
-    # Validate required arguments if not creating config
+    if update_nfo:
+        # --- update-nfo mode ---
+        if source_pattern:
+            click.echo("Error: SOURCE_PATTERN cannot be used with --update-nfo")
+            sys.exit(1)
+        if not series_name:
+            click.echo("Error: SERIES_NAME is required with --update-nfo")
+            sys.exit(1)
+
+        try:
+            config_handler = Config(config)
+            series_config = config_handler.get_series_config(series_name)
+
+            if not series_config:
+                print(f"Error: Series '{series_name}' not found in configuration.")
+                print(f"Available series: {', '.join(config_handler.list_series().keys())}")
+                sys.exit(1)
+
+            target_path = series_config['target_path']
+            tvdb_url = series_config['tvdb_url']
+
+            print(f"Updating NFO files for: {series_config['name']}")
+            print(f"Target path: {target_path}")
+            print("Fetching episode data from TVDB...")
+
+            scraper = TVDBScraper()
+            episodes = scraper.scrape_episodes(tvdb_url)
+
+            if not episodes:
+                print("Error: No episodes found. Please check the TVDB URL.")
+                sys.exit(1)
+
+            print(f"Found {len(episodes)} episodes in database")
+
+            if dry_run:
+                print("\n--- DRY RUN MODE ---")
+
+            file_ops = FileOperations(dry_run=dry_run)
+            file_ops.update_nfo_files(target_path, episodes, overwrite=(update_nfo == 'all'))
+
+        except KeyboardInterrupt:
+            print("\n\nOperation cancelled by user.")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+
+        return
+
+    # --- normal merge mode ---
     if not series_name or not source_pattern:
-        click.echo("Error: SERIES_NAME and SOURCE_PATTERN are required unless using --create-config")
+        click.echo("Error: SERIES_NAME and SOURCE_PATTERN are required unless using --create-config or --update-nfo")
         sys.exit(1)
 
     try:

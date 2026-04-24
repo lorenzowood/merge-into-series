@@ -92,6 +92,7 @@ merge-into-series --dry-run storyville Storyville
 - `--dry-run, -n`: Show what would be done without actually doing it
 - `--threshold, -t`: Fuzzy matching threshold 0-100 (default: 80)
 - `--generate-nfo`: Generate `.nfo` metadata sidecar files alongside video files (default: true). Use `--generate-nfo=false` to disable.
+- `--update-nfo=missing|all`: Scan the target directory and generate NFO files for already-merged episodes, without touching video files. `missing` adds NFOs only where absent; `all` overwrites existing ones too. Cannot be combined with `SOURCE_PATTERN`.
 - `--overwrite, -o`: Overwrite existing files without prompting
 - `--create-config`: Create example configuration file and exit
 - `--help`: Show help message
@@ -237,6 +238,9 @@ flake8 src/ tests/
 MIT License - see LICENSE file for details.
 
 ## Changelog
+
+### v0.1.8
+- Add `--update-nfo=missing/all` to retroactively generate NFO files in an existing library
 
 ### v0.1.7
 - Generate `.nfo` sidecar files for Plex episode metadata (title, summary, air date)

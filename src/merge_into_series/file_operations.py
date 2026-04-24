@@ -1,11 +1,16 @@
 """File operations for moving and copying episodes."""
 
 import os
+import re
 import shutil
 import xml.sax.saxutils as saxutils
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
+
+
+VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.mpg', '.mpeg', '.m4v', '.wmv', '.ts'}
+_EPISODE_CODE_RE = re.compile(r'^S(\d+)E(\d+)', re.IGNORECASE)
 
 
 class FileOperations:
@@ -157,6 +162,54 @@ class FileOperations:
         except Exception as e:
             print(f"Error during {op_type} operation: {e}")
             return False
+
+    def update_nfo_files(self, target_path: str, episodes: List, overwrite: bool = False) -> bool:
+        """Scan target directory and write NFO files for existing video files.
+
+        If overwrite=False, skips video files that already have a .nfo sidecar.
+        If overwrite=True, rewrites all NFO files.
+        """
+        target = Path(target_path)
+        episode_lookup = {(ep.season, ep.episode): ep for ep in episodes}
+
+        written = skipped = unmatched = 0
+
+        for video_file in sorted(target.rglob('*')):
+            if not video_file.is_file() or video_file.suffix.lower() not in VIDEO_EXTENSIONS:
+                continue
+
+            nfo_path = video_file.with_suffix('.nfo')
+
+            if nfo_path.exists() and not overwrite:
+                skipped += 1
+                continue
+
+            m = _EPISODE_CODE_RE.match(video_file.stem)
+            if not m:
+                print(f"Warning: Could not parse episode code from {video_file.name} — skipping")
+                unmatched += 1
+                continue
+
+            season, episode_num = int(m.group(1)), int(m.group(2))
+            episode = episode_lookup.get((season, episode_num))
+
+            if not episode:
+                print(f"Warning: No TVDB entry for S{season:04d}E{episode_num:02d} ({video_file.name}) — skipping")
+                unmatched += 1
+                continue
+
+            if self.dry_run:
+                action = "overwrite" if nfo_path.exists() else "write"
+                print(f"[DRY RUN] Would {action} NFO: {nfo_path}")
+            else:
+                action = "Overwrote" if nfo_path.exists() else "Wrote"
+                self._write_nfo_file(video_file, episode)
+                print(f"{action} NFO: {nfo_path.name}")
+
+            written += 1
+
+        print(f"NFO update: {written} written, {skipped} already present (skipped), {unmatched} unmatched")
+        return True
 
     def check_target_writable(self, target_path: str) -> bool:
         """Check if the target directory is writable."""
