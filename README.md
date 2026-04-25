@@ -86,6 +86,16 @@ merge-into-series storyville "/path/to/downloads/Storyville*.mkv"
 merge-into-series --dry-run storyville Storyville
 ```
 
+**Retroactively generate missing NFO files for an existing library:**
+```bash
+merge-into-series --update-nfo=missing storyville
+```
+
+**Regenerate all NFO files, overwriting existing ones:**
+```bash
+merge-into-series --update-nfo=all storyville
+```
+
 ### Command Options
 
 - `--config, -c`: Path to configuration file (default: `~/.merge-into-series.conf`)
@@ -238,6 +248,9 @@ flake8 src/ tests/
 MIT License - see LICENSE file for details.
 
 ## Changelog
+
+### v0.1.10
+- Document `--update-nfo` usage examples in README
 
 ### v0.1.9
 - Fix `--update-nfo` failing to parse episode codes in filenames that start with a series name prefix (e.g. `Series - S01E01 - Title.mkv`)
