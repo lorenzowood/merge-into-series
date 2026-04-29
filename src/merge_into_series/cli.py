@@ -15,7 +15,7 @@ from .file_operations import FileOperations
 
 @click.command()
 @click.argument('series_name', required=False)
-@click.argument('source_pattern', required=False)
+@click.argument('source_pattern', nargs=-1, required=False)
 @click.option('--config', '-c', help='Path to configuration file')
 @click.option('--dry-run', '-n', is_flag=True, help='Show what would be done without actually doing it')
 @click.option('--threshold', '-t', default=80, help='Fuzzy matching threshold (0-100)')
@@ -30,7 +30,7 @@ from .file_operations import FileOperations
               help='Scan the target directory and generate .nfo files for already-merged episodes. '
                    '"missing" adds NFOs only where absent; "all" overwrites existing ones too. '
                    'Cannot be combined with SOURCE_PATTERN.')
-def main(series_name: Optional[str] = None, source_pattern: Optional[str] = None, config: Optional[str] = None,
+def main(series_name: Optional[str] = None, source_pattern: tuple = (), config: Optional[str] = None,
          dry_run: bool = False, threshold: int = 80, create_config: bool = False, overwrite: bool = False,
          generate_nfo: bool = True, update_nfo: Optional[str] = None):
     """
@@ -130,9 +130,17 @@ def main(series_name: Optional[str] = None, source_pattern: Optional[str] = None
 
         print(f"Found {len(episodes)} episodes in database")
 
-        # Find video files
+        # Find video files (collect and deduplicate across all source patterns)
         matcher = EpisodeMatcher(episodes)
-        video_files = matcher.find_video_files(source_pattern)
+        seen_paths = set()
+        video_files = []
+        for pattern in source_pattern:
+            for vf in matcher.find_video_files(pattern):
+                resolved = vf.resolve()
+                if resolved not in seen_paths:
+                    seen_paths.add(resolved)
+                    video_files.append(vf)
+        video_files = sorted(video_files)
 
         if not video_files:
             print(f"No video files found matching pattern: {source_pattern}")

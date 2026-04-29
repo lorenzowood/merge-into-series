@@ -16,6 +16,7 @@ def temp_config():
     with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.conf') as f:
         f.write("""Storyville, /tmp/test_target, https://thetvdb.com/series/storyville/allseasons/official
 """)
+        f.flush()
         yield f.name
     Path(f.name).unlink()
 
@@ -184,3 +185,73 @@ def test_update_nfo_all_mode_overwrites(mock_scraper_class, temp_config):
             assert '<title>Test Episode</title>' in nfo.read_text(encoding='utf-8')
         finally:
             Path(cfg).unlink()
+
+
+@patch('merge_into_series.cli.TVDBScraper')
+@patch('merge_into_series.cli.InteractiveInterface')
+@patch('merge_into_series.cli.FileOperations')
+def test_multiple_source_arguments(mock_file_ops_class, mock_interface_class, mock_scraper_class, temp_config):
+    """CLI accepts multiple file paths and processes their union."""
+    from merge_into_series.tvdb_scraper import Episode
+
+    mock_scraper = Mock()
+    mock_scraper_class.return_value = mock_scraper
+    mock_scraper.scrape_episodes.return_value = [
+        Episode(2024, 1, "Praying for Armageddon"),
+        Episode(2024, 2, "The Contestant"),
+    ]
+
+    mock_interface = Mock()
+    mock_interface_class.return_value = mock_interface
+    mock_interface.get_user_matches.return_value = []  # No matches -> clean exit
+
+    runner = CliRunner()
+    with tempfile.TemporaryDirectory() as source_dir:
+        (Path(source_dir) / "Upstart_Crow_Praving.mkv").touch()
+        (Path(source_dir) / "Upstart_Crow_Contestant.mp4").touch()
+        file1 = str(Path(source_dir) / "Upstart_Crow_Praving.mkv")
+        file2 = str(Path(source_dir) / "Upstart_Crow_Contestant.mp4")
+
+        result = runner.invoke(main, [
+            '--config', temp_config,
+            '--dry-run',
+            'Storyville',
+            file1,
+            file2,
+        ])
+
+        assert result.exit_code == 0, f"Output: {result.output}, Exception: {result.exception}"
+
+
+@patch('merge_into_series.cli.TVDBScraper')
+@patch('merge_into_series.cli.InteractiveInterface')
+@patch('merge_into_series.cli.FileOperations')
+def test_multiple_source_arguments_deduplication(mock_file_ops_class, mock_interface_class, mock_scraper_class, temp_config):
+    """Overlapping patterns that match the same file are silently deduplicated."""
+    from merge_into_series.tvdb_scraper import Episode
+
+    mock_scraper = Mock()
+    mock_scraper_class.return_value = mock_scraper
+    mock_scraper.scrape_episodes.return_value = [
+        Episode(2024, 1, "Praying for Armageddon"),
+    ]
+
+    mock_interface = Mock()
+    mock_interface_class.return_value = mock_interface
+    mock_interface.get_user_matches.return_value = []
+
+    runner = CliRunner()
+    with tempfile.TemporaryDirectory() as source_dir:
+        (Path(source_dir) / "episode.mkv").touch()
+        file_path = str(Path(source_dir) / "episode.mkv")
+
+        # Pass the same file twice - should not cause an error
+        result = runner.invoke(main, [
+            '--config', temp_config,
+            '--dry-run',
+            'Storyville',
+            file_path,
+            file_path,
+        ])
+
+        assert result.exit_code == 0, f"Output: {result.output}, Exception: {result.exception}"

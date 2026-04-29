@@ -65,7 +65,7 @@ merge-into-series --create-config
 
 ### Basic Usage
 ```bash
-merge-into-series <series_name> <source_pattern>
+merge-into-series <series_name> <source_pattern> [source_pattern ...]
 ```
 
 ### Examples
@@ -79,6 +79,16 @@ merge-into-series storyville Storyville
 **Process specific files with glob pattern:**
 ```bash
 merge-into-series storyville "/path/to/downloads/Storyville*.mkv"
+```
+
+**Process multiple files directly (shell-expands the glob):**
+```bash
+merge-into-series upstart_crow Upstart_Crow_*
+```
+
+**Process a mix of files and directories:**
+```bash
+merge-into-series storyville /downloads/ep1.mkv /downloads/ep2.mkv /other/downloads/
 ```
 
 **Dry run to see what would happen:**
@@ -249,7 +259,10 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
-### v0.1.10
+### v0.1.11
+- Accept multiple source patterns (files, directories, or globs) as arguments.
+  Shell-expanding globs like `Upstart_Crow_*` now work without quoting.
+  Duplicate files from overlapping patterns are silently deduplicated.
 - Document `--update-nfo` usage examples in README
 
 ### v0.1.9
