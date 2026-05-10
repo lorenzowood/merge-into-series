@@ -294,6 +294,9 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
+### v0.1.17
+- Sanitize colons in series directory names (replace with ` -`) to prevent filesystem/Plex display issues on macOS and exFAT volumes
+
 ### v0.1.16
 - Fix config parsing failing when the directory name contains a comma (e.g. "Maps: Power, Plunder and Possession")
 

@@ -6,6 +6,14 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 
+def _sanitize_dirname(name: str) -> str:
+    """Replace characters that are problematic in directory names on macOS/exFAT.
+
+    Colons map to '/' internally on HFS+/APFS, which confuses Plex and other apps.
+    """
+    return name.replace(':', ' -')
+
+
 def _normalize_to_words(name: str) -> List[str]:
     """Split a name into lowercase words, handling camelCase, underscores, and hyphens."""
     name = re.sub(r'([a-z])([A-Z])', r'\1 \2', name)
@@ -82,8 +90,13 @@ class Config:
             print(f"Error reading config file {self.config_path}: {e}")
 
     def _resolve_path(self, target_path: str) -> Path:
-        """Return an absolute path, joining against ROOT if the path is relative."""
+        """Return an absolute path, joining against ROOT if the path is relative.
+
+        Also sanitizes the series directory name (last component) to remove
+        characters that are problematic on macOS/exFAT, such as colons.
+        """
         p = Path(target_path)
+        p = p.parent / _sanitize_dirname(p.name)
         if p.is_absolute() or self._root is None:
             return p
         return self._root / p
@@ -118,7 +131,7 @@ class Config:
         with open(self.config_path, 'a', encoding='utf-8') as f:
             if existing and not existing.endswith('\n'):
                 f.write('\n')
-            f.write(f"{name}, {path}, {url}\n")
+            f.write(f"{name}, {_sanitize_dirname(path)}, {url}\n")
 
         return True
 

@@ -8,8 +8,38 @@ import pytest
 from merge_into_series.config import Config, _normalize_to_words, _words_match_subsequence
 
 
+def test_colon_in_directory_name_is_sanitized(tmp_path):
+    """Colons in the series directory name are replaced with ' -' to avoid Plex/filesystem issues."""
+    conf = tmp_path / "test.conf"
+    conf.write_text(
+        "ROOT: /Media/TV\n"
+        "Empire, Empire of the Seas: How the Navy Forged the Modern World (2010) {tvdb-135411},"
+        " https://www.thetvdb.com/series/empire/allseasons/official\n"
+    )
+    config = Config(str(conf))
+    s = config.get_series_config('Empire')
+    assert s is not None
+    assert ':' not in s['target_path']
+    assert 'Empire of the Seas - How the Navy Forged the Modern World' in s['target_path']
+
+
+def test_add_series_sanitizes_colon_in_path(tmp_path):
+    """add_series writes the sanitized (colon-free) directory name to the config file."""
+    conf = tmp_path / "test.conf"
+    config = Config(str(conf))
+    config.add_series(
+        "Empire",
+        "Empire of the Seas: How the Navy Forged the Modern World (2010) {tvdb-135411}",
+        "https://www.thetvdb.com/series/empire/allseasons/official",
+    )
+    text = conf.read_text()
+    assert 'Empire of the Seas - How' in text  # colon replaced with ' -' in directory name
+    assert 'Empire of the Seas:' not in text   # original colon form absent
+
+
 def test_comma_in_directory_name(tmp_path):
-    """Directory names containing commas (e.g. 'Maps: Power, Plunder...') parse correctly."""
+    """Directory names containing commas (e.g. 'Maps: Power, Plunder...') parse correctly,
+    and colons in the name are sanitized to ' -'."""
     conf = tmp_path / "test.conf"
     conf.write_text(
         "ROOT: /Media/TV\n"
@@ -19,7 +49,7 @@ def test_comma_in_directory_name(tmp_path):
     config = Config(str(conf))
     s = config.get_series_config('Maps')
     assert s is not None
-    assert s['target_path'] == '/Media/TV/Maps: Power, Plunder and Possession (2010) {tvdb-157961}'
+    assert s['target_path'] == '/Media/TV/Maps - Power, Plunder and Possession (2010) {tvdb-157961}'
     assert s['tvdb_url'] == 'https://www.thetvdb.com/series/maps-power-plunder-and-possession/allseasons/official'
 
 
