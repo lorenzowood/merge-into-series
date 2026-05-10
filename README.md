@@ -294,6 +294,9 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
+### v0.1.15
+- Manual entry pre-fills the title prompt from TVDB metadata when the entered season/episode is known; edit or press Enter to accept
+
 ### v0.1.14
 - Match files by episode code patterns (s01e01, 1x01, 1of2, ep1, part1) when no title is available; titles are pulled from TVDB metadata
 

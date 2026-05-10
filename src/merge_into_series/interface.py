@@ -1,10 +1,23 @@
 """Interactive user interface for episode matching and confirmation."""
 
+import readline
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 
 from .tvdb_scraper import Episode
 from .matcher import EpisodeMatcher
+
+
+def _input_prefilled(prompt: str, prefill: str = "") -> str:
+    """Prompt for input with an editable pre-filled default value."""
+    def hook():
+        readline.insert_text(prefill)
+        readline.redisplay()
+    readline.set_pre_input_hook(hook)
+    try:
+        return input(prompt)
+    finally:
+        readline.set_pre_input_hook(None)
 
 
 class InteractiveInterface:
@@ -54,7 +67,7 @@ class InteractiveInterface:
                                 break
                             elif choice_num == len(top) + 1:
                                 # Manual entry
-                                manual_episode = self._get_manual_episode_entry()
+                                manual_episode = self._get_manual_episode_entry(matcher)
                                 if manual_episode:
                                     final_matches[filename] = manual_episode
                                 else:
@@ -99,7 +112,7 @@ class InteractiveInterface:
                                     final_matches[filename] = selected_episode
                                     break
                                 elif choice_num == len(candidates) + 1:
-                                    manual_episode = self._get_manual_episode_entry()
+                                    manual_episode = self._get_manual_episode_entry(matcher)
                                     if manual_episode:
                                         final_matches[filename] = manual_episode
                                     else:
@@ -129,7 +142,7 @@ class InteractiveInterface:
                             try:
                                 choice = input("Choice: ").strip()
                                 if choice == "1":
-                                    manual_episode = self._get_manual_episode_entry()
+                                    manual_episode = self._get_manual_episode_entry(matcher)
                                     if manual_episode:
                                         final_matches[filename] = manual_episode
                                     else:
@@ -146,20 +159,36 @@ class InteractiveInterface:
 
         return final_matches
 
-    def _get_manual_episode_entry(self) -> Optional[Episode]:
-        """Get manual episode entry from user."""
+    def _get_manual_episode_entry(self, matcher: Optional['EpisodeMatcher'] = None) -> Optional[Episode]:
+        """Get manual episode entry from user, pre-filling the title from metadata if known."""
         try:
             print("Manual entry:")
             season_str = input("Season (YYYY): ").strip()
             episode_str = input("Episode: ").strip()
-            title = input("Title: ").strip()
 
-            if not all([season_str, episode_str, title]):
-                print("All fields are required for manual entry.")
+            if not season_str or not episode_str:
+                print("Season and episode are required.")
                 return None
 
             season = int(season_str)
             episode_num = int(episode_str)
+
+            # Look up the episode in metadata to pre-fill the title
+            prefill = ""
+            if matcher:
+                known = next(
+                    (ep for ep in matcher.episodes
+                     if ep.season == season and ep.episode == episode_num),
+                    None
+                )
+                if known:
+                    prefill = known.title
+
+            title = _input_prefilled("Title: ", prefill).strip()
+
+            if not title:
+                print("Title is required.")
+                return None
 
             return Episode(season=season, episode=episode_num, title=title)
 
