@@ -275,6 +275,10 @@ flake8 src/ tests/
 - Internet connection (for TVDB data fetching)
 - Dependencies: `requests`, `beautifulsoup4`, `fuzzywuzzy`, `python-levenshtein`, `click`
 
+## Browser Extension
+
+[merge-into-series-tvdb-plugin](https://github.com/lorenzowood/merge-into-series-tvdb-plugin) is a Chromium extension (Chrome / Brave) that adds a one-click `--add` command to every TheTVDB series page. Visit a series, click the generated command to copy it, then paste it in your terminal — no manual typing required.
+
 ## Contributing
 
 1. Fork the repository
