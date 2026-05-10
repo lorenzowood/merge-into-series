@@ -1,5 +1,7 @@
 """Configuration file handling for merge-into-series."""
 
+import csv
+import io
 import os
 import re
 from pathlib import Path
@@ -65,29 +67,20 @@ class Config:
                         continue
 
                     try:
-                        # Anchor on the URL so commas in the path don't confuse splitting.
-                        url_match = re.search(r',\s*(https?://\S+)\s*$', line)
-                        if not url_match:
-                            print(f"Warning: Invalid config line {line_num}: {line}")
-                            continue
-                        tvdb_url = url_match.group(1)
-                        remainder = line[:url_match.start()].strip()
-
-                        # Support quoted names: "Name, with comma", path…
-                        # Unquoted names must not contain commas (enforced on write).
-                        if remainder.startswith('"'):
-                            # Quoted name (written by current code for names with commas)
-                            end_q = remainder.index('"', 1)
-                            series_name = remainder[1:end_q]
-                            target_path = remainder[end_q + 1:].lstrip(', ').strip()
-                        elif ', ' in remainder:
-                            # Split on first ', ' (comma-space): names use underscores
-                            # so they never contain ', ', but paths can.
-                            series_name, target_path = remainder.split(', ', 1)
-                            series_name = series_name.strip()
-                            target_path = target_path.strip()
+                        # Primary: standard CSV reader handles quoted fields correctly.
+                        parts = [p.strip() for p in next(csv.reader([line]), [])]
+                        if len(parts) == 3:
+                            series_name, target_path, tvdb_url = parts
                         else:
-                            # Fallback for no-space-after-comma entries
+                            # Fallback for legacy unquoted entries where a field
+                            # contains commas (csv.reader splits them too eagerly).
+                            # Anchor on the URL, then split remainder on first comma.
+                            url_match = re.search(r',\s*(https?://\S+)\s*$', line)
+                            if not url_match:
+                                print(f"Warning: Invalid config line {line_num}: {line}")
+                                continue
+                            tvdb_url = url_match.group(1)
+                            remainder = line[:url_match.start()].strip()
                             comma_idx = remainder.index(',')
                             series_name = remainder[:comma_idx].strip()
                             target_path = remainder[comma_idx + 1:].strip()
@@ -141,14 +134,21 @@ class Config:
         if self.get_series_config(name):
             return False
 
-        # Names are CLI identifiers — commas would break the CSV format.
+        # Names are CLI identifiers — strip commas so they stay unquoted and
+        # easy to type on the command line.
         clean_name = name.replace(',', '')
+
+        buf = io.StringIO()
+        csv.writer(buf, lineterminator='\n').writerow(
+            [clean_name, _sanitize_dirname(path), url]
+        )
+        line = buf.getvalue()
 
         existing = self.config_path.read_text(encoding='utf-8') if self.config_path.exists() else ''
         with open(self.config_path, 'a', encoding='utf-8') as f:
             if existing and not existing.endswith('\n'):
                 f.write('\n')
-            f.write(f"{clean_name}, {_sanitize_dirname(path)}, {url}\n")
+            f.write(line)
 
         return True
 

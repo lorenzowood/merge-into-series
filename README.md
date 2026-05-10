@@ -294,6 +294,9 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
+### v0.1.20
+- Use standard CSV quoting (`csv.reader`/`csv.writer`) so fields containing commas are wrapped in double-quotes; replaces the fragile comma-space heuristic
+
 ### v0.1.19
 - Fix path parsed incorrectly when series name contains commas: split on `', '` (comma-space) rather than bare comma, since names use underscores and never contain `', '`
 
