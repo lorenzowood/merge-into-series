@@ -294,6 +294,9 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
+### v0.1.18
+- Fix config parsing when the series name contains commas: commas are stripped from names on write (names are CLI identifiers), and quoted names (`"Name, with comma"`) are supported in the config for manual edits
+
 ### v0.1.17
 - Sanitize colons in series directory names (replace with ` -`) to prevent filesystem/Plex display issues on macOS and exFAT volumes
 

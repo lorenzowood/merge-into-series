@@ -8,6 +8,42 @@ import pytest
 from merge_into_series.config import Config, _normalize_to_words, _words_match_subsequence
 
 
+def test_quoted_name_with_comma_parses_correctly(tmp_path):
+    """A name field wrapped in double-quotes is parsed correctly even when it contains commas."""
+    conf = tmp_path / "test.conf"
+    conf.write_text(
+        'ROOT: /Media/TV\n'
+        '"Maps:_Power,_Plunder_and_Possession",'
+        ' Maps - Power, Plunder and Possession (2010) {tvdb-157961},'
+        ' https://www.thetvdb.com/series/maps-power-plunder-and-possession/allseasons/official\n'
+    )
+    config = Config(str(conf))
+    s = config.get_series_config('Maps:_Power,_Plunder_and_Possession')
+    assert s is not None
+    assert s['name'] == 'Maps:_Power,_Plunder_and_Possession'
+    assert 'Plunder and Possession' in s['target_path']
+
+
+def test_add_series_strips_commas_from_name(tmp_path):
+    """Commas in the name are stripped so the config line stays valid CSV."""
+    conf = tmp_path / "test.conf"
+    config = Config(str(conf))
+    config.add_series(
+        "Maps:_Power,_Plunder_and_Possession",
+        "Maps - Power, Plunder and Possession (2010) {tvdb-157961}",
+        "https://www.thetvdb.com/series/maps-power-plunder-and-possession/allseasons/official",
+    )
+    text = conf.read_text()
+    first_line = text.strip().split('\n')[0]
+    # Name should have comma stripped, path should still be intact
+    assert first_line.startswith('Maps:_Power_Plunder_and_Possession,')
+    # Re-parsing should find the entry
+    config2 = Config(str(conf))
+    s = config2.get_series_config('Maps:_Power_Plunder_and_Possession')
+    assert s is not None
+    assert 'Plunder and Possession' in s['target_path']
+
+
 def test_colon_in_directory_name_is_sanitized(tmp_path):
     """Colons in the series directory name are replaced with ' -' to avoid Plex/filesystem issues."""
     conf = tmp_path / "test.conf"

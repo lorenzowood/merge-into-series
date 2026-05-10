@@ -65,18 +65,24 @@ class Config:
                         continue
 
                     try:
-                        # Split on the URL first (anchored to http) so commas in
-                        # the directory name (e.g. "Maps: Power, Plunder...") don't
-                        # confuse a simple split(',', 2).
+                        # Anchor on the URL so commas in the path don't confuse splitting.
                         url_match = re.search(r',\s*(https?://\S+)\s*$', line)
                         if not url_match:
                             print(f"Warning: Invalid config line {line_num}: {line}")
                             continue
                         tvdb_url = url_match.group(1)
-                        remainder = line[:url_match.start()]
-                        comma_idx = remainder.index(',')
-                        series_name = remainder[:comma_idx].strip()
-                        target_path = remainder[comma_idx + 1:].strip()
+                        remainder = line[:url_match.start()].strip()
+
+                        # Support quoted names: "Name, with comma", path…
+                        # Unquoted names must not contain commas (enforced on write).
+                        if remainder.startswith('"'):
+                            end_q = remainder.index('"', 1)
+                            series_name = remainder[1:end_q]
+                            target_path = remainder[end_q + 1:].lstrip(', ').strip()
+                        else:
+                            comma_idx = remainder.index(',')
+                            series_name = remainder[:comma_idx].strip()
+                            target_path = remainder[comma_idx + 1:].strip()
                         resolved = self._resolve_path(target_path)
                         self._series_config[series_name.lower()] = {
                             'name': series_name,
@@ -127,11 +133,14 @@ class Config:
         if self.get_series_config(name):
             return False
 
+        # Names are CLI identifiers — commas would break the CSV format.
+        clean_name = name.replace(',', '')
+
         existing = self.config_path.read_text(encoding='utf-8') if self.config_path.exists() else ''
         with open(self.config_path, 'a', encoding='utf-8') as f:
             if existing and not existing.endswith('\n'):
                 f.write('\n')
-            f.write(f"{name}, {_sanitize_dirname(path)}, {url}\n")
+            f.write(f"{clean_name}, {_sanitize_dirname(path)}, {url}\n")
 
         return True
 
