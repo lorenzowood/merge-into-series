@@ -77,11 +77,11 @@ def test_missing_series_config(temp_config):
 
 
 def test_add_new_series(temp_config):
-    """'add' keyword appends a new entry to the config."""
+    """--add appends a new entry to the config."""
     runner = CliRunner()
     result = runner.invoke(main, [
         '--config', temp_config,
-        'add', 'Arena', '/tv/arena', 'https://example.com/arena',
+        '--add', 'Arena', '/tv/arena', 'https://example.com/arena',
     ])
     assert result.exit_code == 0
     assert 'Added "Arena"' in result.output
@@ -89,23 +89,15 @@ def test_add_new_series(temp_config):
 
 
 def test_add_duplicate_series(temp_config):
-    """'add' with an existing name prints a message and exits cleanly."""
+    """--add with an existing name prints a message and exits cleanly."""
     runner = CliRunner()
     result = runner.invoke(main, [
         '--config', temp_config,
-        'add', 'Storyville', '/tv/other', 'https://example.com/other',
+        '--add', 'Storyville', '/tv/other', 'https://example.com/other',
     ])
     assert result.exit_code == 0
     assert 'already exists' in result.output
     assert Path(temp_config).read_text().count('Storyville') == 1
-
-
-def test_add_wrong_arg_count(temp_config):
-    """'add' with wrong number of arguments exits with an error."""
-    runner = CliRunner()
-    result = runner.invoke(main, ['--config', temp_config, 'add', 'Arena'])
-    assert result.exit_code == 1
-    assert 'Usage' in result.output
 
 
 def test_strict_skips_fuzzy_match(temp_config):

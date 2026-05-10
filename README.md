@@ -68,7 +68,7 @@ merge-into-series --create-config
 
 ### Add a Series
 ```bash
-merge-into-series add For_All_Mankind "For All Mankind (2019) {tvdb-356202}" "https://www.thetvdb.com/series/for-all-mankind/allseasons/official"
+merge-into-series --add For_All_Mankind "For All Mankind (2019) {tvdb-356202}" "https://www.thetvdb.com/series/for-all-mankind/allseasons/official"
 ```
 
 Adding a name that already exists (case-insensitive) prints a message and does nothing.
@@ -144,6 +144,7 @@ merge-into-series --update-nfo=all storyville
 - `--generate-nfo`: Generate `.nfo` metadata sidecar files alongside video files (default: true). Use `--generate-nfo=false` to disable.
 - `--update-nfo=missing|all`: Scan the target directory and generate NFO files for already-merged episodes, without touching video files. `missing` adds NFOs only where absent; `all` overwrites existing ones too. Cannot be combined with `SOURCE_PATTERN`.
 - `--overwrite, -o`: Overwrite existing files without prompting
+- `--add NAME DIR URL`: Add a new series entry to the configuration file and exit
 - `--create-config`: Create example configuration file and exit
 - `--help`: Show help message
 
@@ -289,12 +290,15 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
+### v0.1.13
+- Replace `add` keyword with `--add NAME DIR URL` option (shows in `--help`, no PATH ambiguity)
+
 ### v0.1.12
 - Fuzzy series name matching: supply a partial or differently-formatted name (`mankind`, `ForAllMankind`, `for-all-mankind`) and get a "Did you mean?" prompt
 - `--strict` flag to require an exact series name match
 - `-y` / `--yes` flag to auto-confirm all prompts (fuzzy match, episode selection, move)
 - `ROOT:` directive in the config file to set a shared parent directory, so series paths can be relative
-- `add` keyword to append a new series entry from the command line
+- `--add` option to append a new series entry from the command line
 
 ### v0.1.11
 - Accept multiple source patterns (files, directories, or globs) as arguments.

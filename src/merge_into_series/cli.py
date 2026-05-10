@@ -70,6 +70,9 @@ def _resolve_series(config_handler, series_name: str, strict: bool, yes: bool):
 @click.option('--threshold', '-t', default=80, help='Fuzzy matching threshold (0-100)')
 @click.option('--create-config', is_flag=True, help='Create example configuration file and exit')
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite existing files without prompting')
+@click.option('--add', 'add_entry', nargs=3, type=str, metavar='NAME DIR URL',
+              help='Add a new series to the configuration file and exit. '
+                   'DIR is relative to ROOT (if set) or absolute.')
 @click.option('--yes', '-y', is_flag=True,
               help='Auto-confirm prompts: accept fuzzy series match, pick first episode match, move files.')
 @click.option('--strict', is_flag=True,
@@ -85,17 +88,13 @@ def _resolve_series(config_handler, series_name: str, strict: bool, yes: bool):
                    'Cannot be combined with SOURCE_PATTERN.')
 def main(series_name: Optional[str] = None, source_pattern: tuple = (), config: Optional[str] = None,
          dry_run: bool = False, threshold: int = 80, create_config: bool = False, overwrite: bool = False,
-         yes: bool = False, strict: bool = False,
+         add_entry: Optional[tuple] = None, yes: bool = False, strict: bool = False,
          generate_nfo: bool = True, update_nfo: Optional[str] = None):
     """
     Merge downloaded TV episodes into organized series directories using TVDB metadata.
 
-    SERIES_NAME: Name of the series to look up in configuration (or 'add')
+    SERIES_NAME: Name of the series to look up in configuration
     SOURCE_PATTERN: Path pattern to source files (file, directory, or glob)
-
-    To add a series to the configuration:
-
-        merge-into-series add NAME DIR_OR_PATH TVDB_URL
     """
     # Handle config creation
     if create_config:
@@ -103,11 +102,8 @@ def main(series_name: Optional[str] = None, source_pattern: tuple = (), config: 
         config_handler.create_example_config()
         return
 
-    if series_name == 'add':
-        if len(source_pattern) != 3:
-            click.echo("Usage: merge-into-series add NAME DIR_OR_PATH TVDB_URL")
-            sys.exit(1)
-        name, path, url = source_pattern
+    if add_entry:
+        name, path, url = add_entry
         config_handler = Config(config)
         if config_handler.add_series(name, path, url):
             print(f'Added "{name}" to configuration.')
