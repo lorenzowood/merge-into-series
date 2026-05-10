@@ -222,6 +222,105 @@ def test_find_candidate_matches_word_subsequence():
     assert candidates[0][0].title == "Delia Derbyshire: The Myths and the Legendary Tapes"
 
 
+def test_extract_episode_code():
+    """Test episode code detection from filenames."""
+    matcher = EpisodeMatcher([])
+
+    # SxxExx variants
+    assert matcher._extract_episode_code("s01e01.avi") == (1, 1)
+    assert matcher._extract_episode_code("S2024E06.mkv") == (2024, 6)
+    assert matcher._extract_episode_code("series.s03e12.mkv") == (3, 12)
+    assert matcher._extract_episode_code("Show S01E01 Title.mkv") == (1, 1)
+
+    # 1x01 format
+    assert matcher._extract_episode_code("1x01.avi") == (1, 1)
+    assert matcher._extract_episode_code("2x12.mkv") == (2, 12)
+
+    # NofM format
+    assert matcher._extract_episode_code("1of2.avi") == (None, 1)
+    assert matcher._extract_episode_code("2of6.avi") == (None, 2)
+    assert matcher._extract_episode_code("3 of 4.avi") == (None, 3)
+
+    # ep / episode
+    assert matcher._extract_episode_code("ep1.avi") == (None, 1)
+    assert matcher._extract_episode_code("ep01.avi") == (None, 1)
+    assert matcher._extract_episode_code("episode3.mkv") == (None, 3)
+
+    # part
+    assert matcher._extract_episode_code("part1.avi") == (None, 1)
+    assert matcher._extract_episode_code("part02.avi") == (None, 2)
+
+    # No match
+    assert matcher._extract_episode_code("praying_for_armageddon.mkv") is None
+    assert matcher._extract_episode_code("normal_title.avi") is None
+
+
+def test_match_episode_by_code_exact_season():
+    """s01e01-style filename matches directly by season+episode code."""
+    episodes = [
+        Episode(1, 1, "Pilot"),
+        Episode(1, 2, "Second Episode"),
+        Episode(2, 1, "Season Two Opener"),
+    ]
+    matcher = EpisodeMatcher(episodes)
+
+    matches = matcher.match_episode("s01e01.avi")
+    assert len(matches) >= 1
+    assert matches[0][0].title == "Pilot"
+    assert matches[0][1] == 100  # top score for exact code match
+
+    matches = matcher.match_episode("s02e01.mkv")
+    assert matches[0][0].title == "Season Two Opener"
+
+
+def test_match_episode_by_code_episode_only():
+    """NofM and ep-style filenames match across all seasons."""
+    episodes = [
+        Episode(2024, 1, "First 2024 Episode"),
+        Episode(2025, 1, "First 2025 Episode"),
+        Episode(2024, 2, "Second 2024 Episode"),
+    ]
+    matcher = EpisodeMatcher(episodes)
+
+    # 1of2 → both episodes numbered 1 across seasons
+    matches = matcher.match_episode("1of2.avi")
+    titles = [ep.title for ep, _ in matches]
+    assert "First 2024 Episode" in titles
+    assert "First 2025 Episode" in titles
+
+    # ep2 → single match
+    matches = matcher.match_episode("ep2.avi")
+    assert len(matches) == 1
+    assert matches[0][0].title == "Second 2024 Episode"
+
+
+def test_match_episode_code_takes_precedence():
+    """Code match wins over any fuzzy title match for the same episode."""
+    episodes = [
+        Episode(1, 1, "Pilot"),
+        Episode(1, 2, "Second Episode"),
+    ]
+    matcher = EpisodeMatcher(episodes)
+
+    # File has both a code and a partial title — code result should be first
+    matches = matcher.match_episode("s01e02 pilot intro.mkv")
+    assert matches[0][0].title == "Second Episode"  # code match beats title fuzzy
+
+
+def test_find_candidate_matches_by_code():
+    """find_candidate_matches also uses code detection."""
+    episodes = [
+        Episode(1, 1, "Opening Night"),
+        Episode(1, 2, "The Second Act"),
+    ]
+    matcher = EpisodeMatcher(episodes)
+
+    candidates = matcher.find_candidate_matches("1x01.avi")
+    assert len(candidates) >= 1
+    assert candidates[0][0].title == "Opening Night"
+    assert candidates[0][1] == 100
+
+
 def test_extract_words():
     """Test word extraction helper."""
     matcher = EpisodeMatcher([])

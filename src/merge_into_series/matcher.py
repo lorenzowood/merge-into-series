@@ -78,8 +78,60 @@ class EpisodeMatcher:
         normalized = re.sub(r'\s+', ' ', normalized).strip()
         return normalized.lower()
 
+    def _extract_episode_code(self, filename: str) -> Optional[Tuple[Optional[int], int]]:
+        """Detect an episode/season code in the filename stem.
+
+        Returns (season, episode), (None, episode), or None.
+        season is None when only the episode number is recoverable.
+        """
+        stem = Path(filename).stem
+
+        # s01e01 / S2024E06 — negative lookbehind avoids matching mid-word (e.g. "boss01e01")
+        m = re.search(r'(?<![a-zA-Z])s(\d+)e(\d+)', stem, re.IGNORECASE)
+        if m:
+            return (int(m.group(1)), int(m.group(2)))
+
+        # 1x01 format (season up to 2 digits, episode exactly 2)
+        m = re.search(r'(?<!\d)(\d{1,2})x(\d{2})(?!\d)', stem)
+        if m:
+            return (int(m.group(1)), int(m.group(2)))
+
+        # 1of2 / 1 of 6 — episode N of M total
+        m = re.search(r'\b(\d+)\s*of\s*\d+\b', stem, re.IGNORECASE)
+        if m:
+            return (None, int(m.group(1)))
+
+        # ep01 / episode01
+        m = re.search(r'\bep(?:isode)?\s*0*(\d+)\b', stem, re.IGNORECASE)
+        if m:
+            return (None, int(m.group(1)))
+
+        # part1 / part01
+        m = re.search(r'\bpart\s*0*(\d+)\b', stem, re.IGNORECASE)
+        if m:
+            return (None, int(m.group(1)))
+
+        return None
+
+    def _lookup_by_code(self, season: Optional[int], episode: int) -> List[Episode]:
+        """Return episodes matching (season, episode); season=None matches any season."""
+        if season is not None:
+            return [ep for ep in self.episodes if ep.season == season and ep.episode == episode]
+        return [ep for ep in self.episodes if ep.episode == episode]
+
     def match_episode(self, filename: str, threshold: int = 80) -> List[Tuple[Episode, int]]:
         """Find matching episodes for a filename."""
+        # Keyed by title so code matches (inserted first) are never overwritten by fuzzy hits
+        seen: Dict[str, Tuple[Episode, int]] = {}
+
+        # Strategy 0: episode code in filename (s01e01, 1x01, 1of2, ep1, part1)
+        code = self._extract_episode_code(filename)
+        if code is not None:
+            season, ep_num = code
+            code_score = 100 if season is not None else 95
+            for ep in self._lookup_by_code(season, ep_num):
+                seen[ep.title] = (ep, code_score)
+
         extracted_title = self.extract_title_from_filename(filename)
 
         # Try to remove common series prefixes
@@ -91,8 +143,6 @@ class EpisodeMatcher:
 
         # Normalize the extracted title for matching
         normalized_extracted = self._normalize_for_matching(extracted_title)
-
-        matches = []
 
         # Create normalized title -> episode mapping for matching
         normalized_to_episode = {}
@@ -113,20 +163,18 @@ class EpisodeMatcher:
         for norm_match_title, score in fuzzy_matches:
             if score >= threshold:
                 episode = normalized_to_episode[norm_match_title]
-                matches.append((episode, score))
+                if episode.title not in seen:
+                    seen[episode.title] = (episode, score)
 
         # Also try partial matching (in case the title is contained within filename)
         for episode in self.episodes:
             norm_ep_title = self._normalize_for_matching(episode.title)
             if norm_ep_title in normalized_extracted:
                 score = fuzz.partial_ratio(norm_ep_title, normalized_extracted)
-                if score >= threshold:
-                    # Avoid duplicates
-                    if not any(ep.title == episode.title for ep, _ in matches):
-                        matches.append((episode, score))
+                if score >= threshold and episode.title not in seen:
+                    seen[episode.title] = (episode, score)
 
-        # Sort by score (highest first)
-        matches.sort(key=lambda x: x[1], reverse=True)
+        matches = sorted(seen.values(), key=lambda x: x[1], reverse=True)
         return matches
 
     def get_best_match(self, filename: str, threshold: int = 80) -> Optional[Episode]:
@@ -140,9 +188,20 @@ class EpisodeMatcher:
         """Find candidate matches using relaxed matching criteria.
 
         Uses multiple strategies:
+        0. Episode code detection (s01e01, 1of2, ep1, …)
         1. Lower threshold fuzzy matching (50 instead of 80)
         2. Word subsequence matching - checks if episode title words appear in filename in order
         """
+        candidates: Dict[str, Tuple[Episode, int]] = {}
+
+        # Strategy 0: episode code
+        code = self._extract_episode_code(filename)
+        if code is not None:
+            season, ep_num = code
+            code_score = 100 if season is not None else 95
+            for ep in self._lookup_by_code(season, ep_num):
+                candidates[ep.title] = (ep, code_score)
+
         extracted_title = self.extract_title_from_filename(filename)
 
         # Try to remove common series prefixes
@@ -153,8 +212,6 @@ class EpisodeMatcher:
 
         # Normalize for matching
         normalized_extracted = self._normalize_for_matching(extracted_title)
-
-        candidates = {}  # episode.title -> (episode, score)
 
         # Create normalized title -> episode mapping for matching
         normalized_to_episode = {}

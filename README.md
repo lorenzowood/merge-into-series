@@ -294,6 +294,9 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
+### v0.1.14
+- Match files by episode code patterns (s01e01, 1x01, 1of2, ep1, part1) when no title is available; titles are pulled from TVDB metadata
+
 ### v0.1.13
 - Replace `add` keyword with `--add NAME DIR URL` option (shows in `--help`, no PATH ambiguity)
 
