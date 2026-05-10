@@ -24,6 +24,22 @@ def test_quoted_name_with_comma_parses_correctly(tmp_path):
     assert 'Plunder and Possession' in s['target_path']
 
 
+def test_legacy_name_with_comma_uses_comma_space_split(tmp_path):
+    """Old entries where the name has commas (no quoting) parse correctly because
+    names use underscores so the first ', ' is always the name/path delimiter."""
+    conf = tmp_path / "test.conf"
+    conf.write_text(
+        'ROOT: /Media/TV\n'
+        'Maps:_Power,_Plunder_and_Possession,'
+        ' Maps - Power, Plunder and Possession (2010) {tvdb-157961},'
+        ' https://www.thetvdb.com/series/maps-power-plunder-and-possession/allseasons/official\n'
+    )
+    config = Config(str(conf))
+    s = config.get_series_config('Maps:_Power,_Plunder_and_Possession')
+    assert s is not None
+    assert s['target_path'] == '/Media/TV/Maps - Power, Plunder and Possession (2010) {tvdb-157961}'
+
+
 def test_add_series_strips_commas_from_name(tmp_path):
     """Commas in the name are stripped so the config line stays valid CSV."""
     conf = tmp_path / "test.conf"

@@ -76,10 +76,18 @@ class Config:
                         # Support quoted names: "Name, with comma", path…
                         # Unquoted names must not contain commas (enforced on write).
                         if remainder.startswith('"'):
+                            # Quoted name (written by current code for names with commas)
                             end_q = remainder.index('"', 1)
                             series_name = remainder[1:end_q]
                             target_path = remainder[end_q + 1:].lstrip(', ').strip()
+                        elif ', ' in remainder:
+                            # Split on first ', ' (comma-space): names use underscores
+                            # so they never contain ', ', but paths can.
+                            series_name, target_path = remainder.split(', ', 1)
+                            series_name = series_name.strip()
+                            target_path = target_path.strip()
                         else:
+                            # Fallback for no-space-after-comma entries
                             comma_idx = remainder.index(',')
                             series_name = remainder[:comma_idx].strip()
                             target_path = remainder[comma_idx + 1:].strip()

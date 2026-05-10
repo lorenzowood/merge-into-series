@@ -294,6 +294,9 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
+### v0.1.19
+- Fix path parsed incorrectly when series name contains commas: split on `', '` (comma-space) rather than bare comma, since names use underscores and never contain `', '`
+
 ### v0.1.18
 - Fix config parsing when the series name contains commas: commas are stripped from names on write (names are CLI identifiers), and quoted names (`"Name, with comma"`) are supported in the config for manual edits
 
