@@ -49,17 +49,29 @@ pipx install .
 Create a configuration file at `~/.merge-into-series.conf` with the following format:
 
 ```
-# Series Name, Target Path, TVDB URL
-# This assumes your TV shows are organized in /Media/TV/
-# Adjust the paths below to match your setup.
-Storyville, /Media/TV/Storyville (1997) {tvdb-82300}, https://thetvdb.com/series/storyville/allseasons/official
-Arena, /Media/TV/Arena (1975) {tvdb-80379}, https://thetvdb.com/series/arena/allseasons/official
+# Optional: set a shared root directory. Series paths that don't start with /
+# are treated as subdirectories of ROOT.
+ROOT: /Media/TV
+
+# Series Name, Directory (relative to ROOT or absolute), TVDB URL
+Storyville, Storyville (1997) {tvdb-82300}, https://thetvdb.com/series/storyville/allseasons/official
+Arena, Arena (1975) {tvdb-80379}, https://thetvdb.com/series/arena/allseasons/official
+
+# Absolute paths override ROOT:
+Other_Show, /Different/Location/Other Show, https://thetvdb.com/series/other-show/allseasons/official
 ```
 
 ### Create Example Configuration
 ```bash
 merge-into-series --create-config
 ```
+
+### Add a Series
+```bash
+merge-into-series add For_All_Mankind "For All Mankind (2019) {tvdb-356202}" "https://www.thetvdb.com/series/for-all-mankind/allseasons/official"
+```
+
+Adding a name that already exists (case-insensitive) prints a message and does nothing.
 
 ## Usage
 
@@ -96,6 +108,22 @@ merge-into-series storyville /downloads/ep1.mkv /downloads/ep2.mkv /other/downlo
 merge-into-series --dry-run storyville Storyville
 ```
 
+**Use a partial or differently-formatted series name (fuzzy match):**
+```bash
+merge-into-series mankind Storyville*.mkv
+# Did you mean "For_All_Mankind"? [y/N]
+```
+
+**Skip all confirmation prompts (accept fuzzy match, pick first episode match, move files):**
+```bash
+merge-into-series -y mankind Storyville*.mkv
+```
+
+**Require an exact series name match, disabling fuzzy lookup:**
+```bash
+merge-into-series --strict For_All_Mankind Storyville*.mkv
+```
+
 **Retroactively generate missing NFO files for an existing library:**
 ```bash
 merge-into-series --update-nfo=missing storyville
@@ -110,6 +138,8 @@ merge-into-series --update-nfo=all storyville
 
 - `--config, -c`: Path to configuration file (default: `~/.merge-into-series.conf`)
 - `--dry-run, -n`: Show what would be done without actually doing it
+- `--yes, -y`: Auto-confirm all prompts — accept fuzzy series match, pick first episode match, move files without asking
+- `--strict`: Disable fuzzy series name matching; require an exact name from the config
 - `--threshold, -t`: Fuzzy matching threshold 0-100 (default: 80)
 - `--generate-nfo`: Generate `.nfo` metadata sidecar files alongside video files (default: true). Use `--generate-nfo=false` to disable.
 - `--update-nfo=missing|all`: Scan the target directory and generate NFO files for already-merged episodes, without touching video files. `missing` adds NFOs only where absent; `all` overwrites existing ones too. Cannot be combined with `SOURCE_PATTERN`.
@@ -258,6 +288,13 @@ flake8 src/ tests/
 MIT License - see LICENSE file for details.
 
 ## Changelog
+
+### v0.1.12
+- Fuzzy series name matching: supply a partial or differently-formatted name (`mankind`, `ForAllMankind`, `for-all-mankind`) and get a "Did you mean?" prompt
+- `--strict` flag to require an exact series name match
+- `-y` / `--yes` flag to auto-confirm all prompts (fuzzy match, episode selection, move)
+- `ROOT:` directive in the config file to set a shared parent directory, so series paths can be relative
+- `add` keyword to append a new series entry from the command line
 
 ### v0.1.11
 - Accept multiple source patterns (files, directories, or globs) as arguments.

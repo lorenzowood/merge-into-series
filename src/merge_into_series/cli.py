@@ -13,6 +13,55 @@ from .interface import InteractiveInterface
 from .file_operations import FileOperations
 
 
+def _resolve_series(config_handler, series_name: str, strict: bool, yes: bool):
+    """Return series config for series_name, with optional fuzzy fallback.
+
+    Returns None if no match is found or the user declines the suggestion.
+    """
+    series_config = config_handler.get_series_config(series_name)
+    if series_config or strict:
+        return series_config
+
+    fuzzy_matches = config_handler.find_fuzzy_matches(series_name)
+
+    if len(fuzzy_matches) == 1:
+        match = fuzzy_matches[0]
+        if yes:
+            print(f'Matched: "{match["name"]}"')
+            return match
+        try:
+            confirm = input(f'Did you mean "{match["name"]}"? [y/N] ').strip().lower()
+        except KeyboardInterrupt:
+            return None
+        if confirm == 'y':
+            return match
+
+    elif 2 <= len(fuzzy_matches) <= 3:
+        print("Did you mean one of these?")
+        for i, m in enumerate(fuzzy_matches, 1):
+            print(f"  {i}. {m['name']}")
+        if yes:
+            match = fuzzy_matches[0]
+            print(f"Auto-selected: {match['name']}")
+            return match
+        while True:
+            try:
+                choice = input("Choice (or Enter to cancel): ").strip()
+            except KeyboardInterrupt:
+                return None
+            if not choice:
+                return None
+            try:
+                n = int(choice)
+                if 1 <= n <= len(fuzzy_matches):
+                    return fuzzy_matches[n - 1]
+            except ValueError:
+                pass
+            print("Invalid choice.")
+
+    return None
+
+
 @click.command()
 @click.argument('series_name', required=False)
 @click.argument('source_pattern', nargs=-1, required=False)
@@ -21,6 +70,10 @@ from .file_operations import FileOperations
 @click.option('--threshold', '-t', default=80, help='Fuzzy matching threshold (0-100)')
 @click.option('--create-config', is_flag=True, help='Create example configuration file and exit')
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite existing files without prompting')
+@click.option('--yes', '-y', is_flag=True,
+              help='Auto-confirm prompts: accept fuzzy series match, pick first episode match, move files.')
+@click.option('--strict', is_flag=True,
+              help='Disable fuzzy series name matching; require an exact name from the config.')
 @click.option('--generate-nfo', default=True, show_default=True, type=bool,
               help='Generate .nfo metadata sidecar files alongside video files. '
                    'These let Plex find episode title, summary, and air date for series '
@@ -32,17 +85,34 @@ from .file_operations import FileOperations
                    'Cannot be combined with SOURCE_PATTERN.')
 def main(series_name: Optional[str] = None, source_pattern: tuple = (), config: Optional[str] = None,
          dry_run: bool = False, threshold: int = 80, create_config: bool = False, overwrite: bool = False,
+         yes: bool = False, strict: bool = False,
          generate_nfo: bool = True, update_nfo: Optional[str] = None):
     """
     Merge downloaded TV episodes into organized series directories using TVDB metadata.
 
-    SERIES_NAME: Name of the series to look up in configuration
+    SERIES_NAME: Name of the series to look up in configuration (or 'add')
     SOURCE_PATTERN: Path pattern to source files (file, directory, or glob)
+
+    To add a series to the configuration:
+
+        merge-into-series add NAME DIR_OR_PATH TVDB_URL
     """
     # Handle config creation
     if create_config:
         config_handler = Config(config)
         config_handler.create_example_config()
+        return
+
+    if series_name == 'add':
+        if len(source_pattern) != 3:
+            click.echo("Usage: merge-into-series add NAME DIR_OR_PATH TVDB_URL")
+            sys.exit(1)
+        name, path, url = source_pattern
+        config_handler = Config(config)
+        if config_handler.add_series(name, path, url):
+            print(f'Added "{name}" to configuration.')
+        else:
+            print(f'"{name}" already exists in configuration.')
         return
 
     if update_nfo:
@@ -56,7 +126,7 @@ def main(series_name: Optional[str] = None, source_pattern: tuple = (), config: 
 
         try:
             config_handler = Config(config)
-            series_config = config_handler.get_series_config(series_name)
+            series_config = _resolve_series(config_handler, series_name, strict, yes)
 
             if not series_config:
                 print(f"Error: Series '{series_name}' not found in configuration.")
@@ -104,7 +174,7 @@ def main(series_name: Optional[str] = None, source_pattern: tuple = (), config: 
     try:
         # Load configuration
         config_handler = Config(config)
-        series_config = config_handler.get_series_config(series_name)
+        series_config = _resolve_series(config_handler, series_name, strict, yes)
 
         if not series_config:
             print(f"Error: Series '{series_name}' not found in configuration.")
@@ -153,7 +223,7 @@ def main(series_name: Optional[str] = None, source_pattern: tuple = (), config: 
             files_and_matches[str(video_file)] = matches
 
         # Interactive matching
-        interface = InteractiveInterface()
+        interface = InteractiveInterface(yes=yes)
         final_matches = interface.get_user_matches(files_and_matches, matcher)
 
         if not final_matches:

@@ -5,7 +5,53 @@ from pathlib import Path
 
 import pytest
 
-from merge_into_series.config import Config
+from merge_into_series.config import Config, _normalize_to_words, _words_match_subsequence
+
+
+def test_root_directive_resolves_relative_paths(tmp_path):
+    """ROOT: makes relative series paths absolute."""
+    conf = tmp_path / "test.conf"
+    conf.write_text(
+        "ROOT: /Media/TV\n"
+        "Storyville, Storyville (1997) {tvdb-82300}, https://example.com/storyville\n"
+    )
+    config = Config(str(conf))
+    s = config.get_series_config('Storyville')
+    assert s is not None
+    assert s['target_path'] == '/Media/TV/Storyville (1997) {tvdb-82300}'
+
+
+def test_root_directive_case_insensitive(tmp_path):
+    """root: and ROOT: and Root: all work."""
+    conf = tmp_path / "test.conf"
+    conf.write_text(
+        "root: /Media/TV\n"
+        "Arena, Arena (1975), https://example.com/arena\n"
+    )
+    config = Config(str(conf))
+    a = config.get_series_config('Arena')
+    assert a['target_path'] == '/Media/TV/Arena (1975)'
+
+
+def test_absolute_path_ignores_root(tmp_path):
+    """A series with an absolute path is not joined to ROOT."""
+    conf = tmp_path / "test.conf"
+    conf.write_text(
+        "ROOT: /Media/TV\n"
+        "Special, /Other/Location/Special, https://example.com/special\n"
+    )
+    config = Config(str(conf))
+    s = config.get_series_config('Special')
+    assert s['target_path'] == '/Other/Location/Special'
+
+
+def test_no_root_relative_path_kept_as_is(tmp_path):
+    """Without ROOT, a relative path is stored as-is (existing behaviour)."""
+    conf = tmp_path / "test.conf"
+    conf.write_text("Storyville, relative/path, https://example.com/storyville\n")
+    config = Config(str(conf))
+    s = config.get_series_config('Storyville')
+    assert s['target_path'] == 'relative/path'
 
 
 def test_config_loading():
@@ -55,6 +101,148 @@ def test_empty_config():
     config = Config(non_existent_path)
     assert config.get_series_config('anything') is None
     assert len(config.list_series()) == 0
+
+
+FUZZY_CONF = """For_All_Mankind, /tv/for_all_mankind, https://example.com/for-all-mankind
+Landman, /tv/landman, https://example.com/landman
+The_Mighty_Boosh, /tv/boosh, https://example.com/boosh
+Starfleet_Academy, /tv/starfleet, https://example.com/starfleet
+Triffids, /tv/triffids, https://example.com/triffids
+"""
+
+
+@pytest.fixture
+def fuzzy_config(tmp_path):
+    p = tmp_path / "test.conf"
+    p.write_text(FUZZY_CONF)
+    return Config(str(p))
+
+
+# --- unit tests for helpers ---
+
+def test_normalize_underscore():
+    assert _normalize_to_words("For_All_Mankind") == ["for", "all", "mankind"]
+
+
+def test_normalize_hyphen():
+    assert _normalize_to_words("for-all-mankind") == ["for", "all", "mankind"]
+
+
+def test_normalize_camelcase():
+    assert _normalize_to_words("ForAllMankind") == ["for", "all", "mankind"]
+
+
+def test_normalize_spaces():
+    assert _normalize_to_words("for all mankind") == ["for", "all", "mankind"]
+
+
+def test_subsequence_exact():
+    assert _words_match_subsequence(["for", "all", "mankind"], ["for", "all", "mankind"])
+
+
+def test_subsequence_prefix():
+    assert _words_match_subsequence(["triffid"], ["triffids"])
+
+
+def test_subsequence_skip_middle():
+    assert _words_match_subsequence(["for", "mankind"], ["for", "all", "mankind"])
+
+
+def test_subsequence_order_enforced():
+    assert not _words_match_subsequence(["mankind", "for"], ["for", "all", "mankind"])
+
+
+def test_subsequence_no_match():
+    assert not _words_match_subsequence(["mankind"], ["landman"])
+
+
+# --- find_fuzzy_matches ---
+
+def test_fuzzy_single_word_matches(fuzzy_config):
+    matches = fuzzy_config.find_fuzzy_matches("mankind")
+    assert len(matches) == 1
+    assert matches[0]['name'] == 'For_All_Mankind'
+
+
+def test_fuzzy_no_false_positive_landman(fuzzy_config):
+    matches = fuzzy_config.find_fuzzy_matches("mankind")
+    assert all(m['name'] != 'Landman' for m in matches)
+
+
+def test_fuzzy_prefix_match(fuzzy_config):
+    matches = fuzzy_config.find_fuzzy_matches("triffid")
+    assert len(matches) == 1
+    assert matches[0]['name'] == 'Triffids'
+
+
+def test_fuzzy_camelcase_input(fuzzy_config):
+    matches = fuzzy_config.find_fuzzy_matches("ForAllMankind")
+    assert len(matches) == 1
+    assert matches[0]['name'] == 'For_All_Mankind'
+
+
+def test_fuzzy_hyphenated_input(fuzzy_config):
+    matches = fuzzy_config.find_fuzzy_matches("for-all-mankind")
+    assert len(matches) == 1
+    assert matches[0]['name'] == 'For_All_Mankind'
+
+
+def test_fuzzy_partial_skip(fuzzy_config):
+    matches = fuzzy_config.find_fuzzy_matches("for mankind")
+    assert len(matches) == 1
+    assert matches[0]['name'] == 'For_All_Mankind'
+
+
+def test_fuzzy_word_in_wrong_order(fuzzy_config):
+    matches = fuzzy_config.find_fuzzy_matches("boosh mighty")
+    assert len(matches) == 0
+
+
+def test_fuzzy_no_match_returns_empty(fuzzy_config):
+    assert fuzzy_config.find_fuzzy_matches("xyzzy") == []
+
+
+def test_fuzzy_short_words_ignored(fuzzy_config):
+    # "a" is < 3 chars, should not match everything
+    matches = fuzzy_config.find_fuzzy_matches("a")
+    assert matches == []
+
+
+def test_add_series_appends_entry(tmp_path):
+    conf = tmp_path / "test.conf"
+    conf.write_text("Storyville, /tv/storyville, https://example.com/storyville\n")
+    config = Config(str(conf))
+    result = config.add_series("Arena", "/tv/arena", "https://example.com/arena")
+    assert result is True
+    assert config.get_series_config("Arena") is None  # not reloaded in same instance
+    config2 = Config(str(conf))
+    assert config2.get_series_config("Arena") is not None
+
+
+def test_add_series_duplicate_rejected(tmp_path):
+    conf = tmp_path / "test.conf"
+    conf.write_text("Storyville, /tv/storyville, https://example.com/storyville\n")
+    config = Config(str(conf))
+    result = config.add_series("Storyville", "/tv/other", "https://example.com/other")
+    assert result is False
+    assert conf.read_text().count("Storyville") == 1
+
+
+def test_add_series_duplicate_case_insensitive(tmp_path):
+    conf = tmp_path / "test.conf"
+    conf.write_text("Storyville, /tv/storyville, https://example.com/storyville\n")
+    config = Config(str(conf))
+    result = config.add_series("STORYVILLE", "/tv/other", "https://example.com/other")
+    assert result is False
+
+
+def test_add_series_no_trailing_newline(tmp_path):
+    conf = tmp_path / "test.conf"
+    conf.write_text("Storyville, /tv/storyville, https://example.com/storyville")  # no newline
+    config = Config(str(conf))
+    config.add_series("Arena", "/tv/arena", "https://example.com/arena")
+    lines = [l for l in conf.read_text().splitlines() if l.strip()]
+    assert len(lines) == 2
 
 
 def test_create_example_config():

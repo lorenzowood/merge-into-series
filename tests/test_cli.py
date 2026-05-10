@@ -76,6 +76,110 @@ def test_missing_series_config(temp_config):
     assert 'not found in configuration' in result.output
 
 
+def test_add_new_series(temp_config):
+    """'add' keyword appends a new entry to the config."""
+    runner = CliRunner()
+    result = runner.invoke(main, [
+        '--config', temp_config,
+        'add', 'Arena', '/tv/arena', 'https://example.com/arena',
+    ])
+    assert result.exit_code == 0
+    assert 'Added "Arena"' in result.output
+    assert 'Arena' in Path(temp_config).read_text()
+
+
+def test_add_duplicate_series(temp_config):
+    """'add' with an existing name prints a message and exits cleanly."""
+    runner = CliRunner()
+    result = runner.invoke(main, [
+        '--config', temp_config,
+        'add', 'Storyville', '/tv/other', 'https://example.com/other',
+    ])
+    assert result.exit_code == 0
+    assert 'already exists' in result.output
+    assert Path(temp_config).read_text().count('Storyville') == 1
+
+
+def test_add_wrong_arg_count(temp_config):
+    """'add' with wrong number of arguments exits with an error."""
+    runner = CliRunner()
+    result = runner.invoke(main, ['--config', temp_config, 'add', 'Arena'])
+    assert result.exit_code == 1
+    assert 'Usage' in result.output
+
+
+def test_strict_skips_fuzzy_match(temp_config):
+    """--strict exits with error even when a fuzzy match exists."""
+    runner = CliRunner()
+    result = runner.invoke(main, [
+        '--config', temp_config,
+        '--strict',
+        'story',       # would fuzzy-match 'Storyville' without --strict
+        '/tmp/source',
+    ])
+    assert result.exit_code == 1
+    assert 'not found in configuration' in result.output
+
+
+@patch('merge_into_series.cli.TVDBScraper')
+@patch('merge_into_series.cli.InteractiveInterface')
+@patch('merge_into_series.cli.FileOperations')
+def test_yes_flag_accepts_fuzzy_match(mock_file_ops_class, mock_interface_class, mock_scraper_class, temp_config):
+    """-y auto-confirms a fuzzy series match without prompting."""
+    from merge_into_series.tvdb_scraper import Episode
+
+    mock_scraper = Mock()
+    mock_scraper_class.return_value = mock_scraper
+    mock_scraper.scrape_episodes.return_value = [Episode(2024, 1, "Test Episode")]
+
+    mock_interface = Mock()
+    mock_interface_class.return_value = mock_interface
+    mock_interface.get_user_matches.return_value = {}
+
+    runner = CliRunner()
+    with tempfile.TemporaryDirectory() as source_dir:
+        (Path(source_dir) / "ep.mkv").touch()
+        result = runner.invoke(main, [
+            '--config', temp_config,
+            '-y',
+            'story',       # fuzzy-matches 'Storyville'
+            str(Path(source_dir) / "ep.mkv"),
+        ])
+
+    # Should have matched 'Storyville' and called the scraper with its TVDB URL
+    assert result.exit_code == 0, f"Output: {result.output}"
+    assert 'Matched: "Storyville"' in result.output
+    mock_scraper.scrape_episodes.assert_called_once()
+
+
+@patch('merge_into_series.cli.TVDBScraper')
+@patch('merge_into_series.cli.InteractiveInterface')
+@patch('merge_into_series.cli.FileOperations')
+def test_yes_flag_passed_to_interface(mock_file_ops_class, mock_interface_class, mock_scraper_class, temp_config):
+    """-y is forwarded to InteractiveInterface."""
+    from merge_into_series.tvdb_scraper import Episode
+
+    mock_scraper = Mock()
+    mock_scraper_class.return_value = mock_scraper
+    mock_scraper.scrape_episodes.return_value = [Episode(2024, 1, "Test Episode")]
+
+    mock_interface = Mock()
+    mock_interface_class.return_value = mock_interface
+    mock_interface.get_user_matches.return_value = {}
+
+    runner = CliRunner()
+    with tempfile.TemporaryDirectory() as source_dir:
+        (Path(source_dir) / "ep.mkv").touch()
+        runner.invoke(main, [
+            '--config', temp_config,
+            '-y',
+            'Storyville',
+            str(Path(source_dir) / "ep.mkv"),
+        ])
+
+    mock_interface_class.assert_called_once_with(yes=True)
+
+
 @patch('merge_into_series.cli.TVDBScraper')
 @pytest.mark.skip("Integration test - fix later")
 def test_no_episodes_found(mock_scraper_class, temp_config, temp_video_files):
