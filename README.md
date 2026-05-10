@@ -294,6 +294,9 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
+### v0.1.16
+- Fix config parsing failing when the directory name contains a comma (e.g. "Maps: Power, Plunder and Possession")
+
 ### v0.1.15
 - Manual entry pre-fills the title prompt from TVDB metadata when the entered season/episode is known; edit or press Enter to accept
 

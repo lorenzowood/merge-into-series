@@ -8,6 +8,21 @@ import pytest
 from merge_into_series.config import Config, _normalize_to_words, _words_match_subsequence
 
 
+def test_comma_in_directory_name(tmp_path):
+    """Directory names containing commas (e.g. 'Maps: Power, Plunder...') parse correctly."""
+    conf = tmp_path / "test.conf"
+    conf.write_text(
+        "ROOT: /Media/TV\n"
+        "Maps, Maps: Power, Plunder and Possession (2010) {tvdb-157961},"
+        " https://www.thetvdb.com/series/maps-power-plunder-and-possession/allseasons/official\n"
+    )
+    config = Config(str(conf))
+    s = config.get_series_config('Maps')
+    assert s is not None
+    assert s['target_path'] == '/Media/TV/Maps: Power, Plunder and Possession (2010) {tvdb-157961}'
+    assert s['tvdb_url'] == 'https://www.thetvdb.com/series/maps-power-plunder-and-possession/allseasons/official'
+
+
 def test_root_directive_resolves_relative_paths(tmp_path):
     """ROOT: makes relative series paths absolute."""
     conf = tmp_path / "test.conf"

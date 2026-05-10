@@ -57,12 +57,18 @@ class Config:
                         continue
 
                     try:
-                        parts = line.split(',', 2)
-                        if len(parts) != 3:
+                        # Split on the URL first (anchored to http) so commas in
+                        # the directory name (e.g. "Maps: Power, Plunder...") don't
+                        # confuse a simple split(',', 2).
+                        url_match = re.search(r',\s*(https?://\S+)\s*$', line)
+                        if not url_match:
                             print(f"Warning: Invalid config line {line_num}: {line}")
                             continue
-
-                        series_name, target_path, tvdb_url = [p.strip() for p in parts]
+                        tvdb_url = url_match.group(1)
+                        remainder = line[:url_match.start()]
+                        comma_idx = remainder.index(',')
+                        series_name = remainder[:comma_idx].strip()
+                        target_path = remainder[comma_idx + 1:].strip()
                         resolved = self._resolve_path(target_path)
                         self._series_config[series_name.lower()] = {
                             'name': series_name,
