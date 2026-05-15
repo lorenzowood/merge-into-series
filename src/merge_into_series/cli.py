@@ -196,27 +196,26 @@ def main(series_name: Optional[str] = None, source_pattern: tuple = (), config: 
 
         print(f"Found {len(episodes)} episodes in database")
 
-        # Find video files (collect and deduplicate across all source patterns)
+        # Find media files grouped by stem (deduplicated across all source patterns)
         matcher = EpisodeMatcher(episodes)
-        seen_paths = set()
-        video_files = []
+        file_groups = {}  # primary_path_str -> [all paths in group]
+        seen_primaries = set()
         for pattern in source_pattern:
-            for vf in matcher.find_video_files(pattern):
-                resolved = vf.resolve()
-                if resolved not in seen_paths:
-                    seen_paths.add(resolved)
-                    video_files.append(vf)
-        video_files = sorted(video_files)
+            for primary_str, all_paths in matcher.find_media_groups(pattern).items():
+                primary_resolved = Path(primary_str).resolve()
+                if primary_resolved not in seen_primaries:
+                    seen_primaries.add(primary_resolved)
+                    file_groups[primary_str] = all_paths
 
-        if not video_files:
-            print(f"No video files found matching pattern: {source_pattern}")
+        if not file_groups:
+            print(f"No media files found matching pattern: {source_pattern}")
             sys.exit(1)
 
-        # Match files to episodes
+        # Match files to episodes (matching uses the primary / video file for each group)
         files_and_matches = {}
-        for video_file in video_files:
-            matches = matcher.match_episode(str(video_file), threshold)
-            files_and_matches[str(video_file)] = matches
+        for primary_str in sorted(file_groups):
+            matches = matcher.match_episode(primary_str, threshold)
+            files_and_matches[primary_str] = matches
 
         # Interactive matching
         interface = InteractiveInterface(yes=yes)
@@ -227,7 +226,7 @@ def main(series_name: Optional[str] = None, source_pattern: tuple = (), config: 
             sys.exit(0)
 
         # Confirm operations
-        if not interface.confirm_operations(target_path, final_matches, matcher):
+        if not interface.confirm_operations(target_path, final_matches, matcher, file_groups):
             print("Operations cancelled.")
             sys.exit(0)
 

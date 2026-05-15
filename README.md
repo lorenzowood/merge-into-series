@@ -11,6 +11,8 @@ This is particularly useful for long-running series like BBC's "Storyville" (199
 ## Features
 
 - **Fuzzy matching**: Intelligently matches filenames to episode titles, even with typos or formatting differences
+- **Episode code detection**: Recognises `S01E01`, `01x01`, `02x03`, `1of6`, `ep1`, `part1` patterns and maps them directly to TVDB metadata
+- **Companion file handling**: Subtitle and other sidecar files (`.srt`, `.sub`, `.idx`, …) are grouped with their video file and moved/copied together — no repeated matching questions per episode
 - **Interactive confirmation**: Review matches before processing with options to manually correct or skip files
 - **Flexible operations**: Choose between moving or copying files to preserve originals
 - **Season organization**: Automatically creates season directories (e.g., "Season 01", "Season 2024")
@@ -161,11 +163,17 @@ Storyville - ERROR ERROR Speaks ((dashfhd)).mkv ->
 2. S2025E09 The Jackal Speaks
 3. Manual entry
 4. Skip
-Choice: 2
+Choice: 3
+Manual entry:
+Season (YYYY): 2025
+Episode: 9
+Title [The Jackal Speaks]:        ← press Enter to accept the TVDB title
 ...
 
 Ready to process:
 Storyville - Praying for Armageddon ((dashfhd)).mkv -> S2024E06 Praying For Armageddon
+  + Storyville - Praying for Armageddon ((dashfhd)).idx
+  + Storyville - Praying for Armageddon ((dashfhd)).sub
 Storyville - The Contestant ((dashfhd)).mkv -> S2025E11 The Contestant
 ...
 
@@ -175,6 +183,8 @@ Process to target /Media/TV/Storyville (1997) {tvdb-82300} by
 Choice: 1
 
 Moving Storyville - Praying for Armageddon ((dashfhd)).mkv -> S2024E06 Praying For Armageddon
+Moving Storyville - Praying for Armageddon ((dashfhd)).idx -> S2024E06 Praying For Armageddon
+Moving Storyville - Praying for Armageddon ((dashfhd)).sub -> S2024E06 Praying For Armageddon
 ...
 All operations completed successfully!
 ```
@@ -183,15 +193,18 @@ All operations completed successfully!
 
 1. **Configuration Loading**: Reads series configuration from `~/.merge-into-series.conf`
 2. **Episode Data Fetching**: Scrapes episode information from the configured TVDB URL
-3. **File Discovery**: Finds all video files (`.mp4`, `.mkv`, `.avi`, etc.) matching the source pattern
-4. **Fuzzy Matching**: Uses intelligent text matching to pair filenames with episode titles
-5. **Interactive Review**: Presents matches for user confirmation and allows manual corrections
-6. **File Operations**: Moves or copies files to organized season directories with proper naming
-7. **NFO Generation**: Writes a `.nfo` metadata sidecar alongside each video file for Plex
+3. **File Discovery**: Finds video files matching the source pattern, grouping subtitle/companion files (`.srt`, `.sub`, `.idx`, etc.) with the video that shares their stem
+4. **Episode Code Detection**: Checks for `S01E01`, `01x01`/`02x03`, `1of6`, `ep1`, `part1` patterns and resolves them directly against TVDB data (score 100) before fuzzy title matching
+5. **Fuzzy Matching**: Uses intelligent text matching to pair filenames with episode titles
+6. **Interactive Review**: Presents matches for user confirmation and allows manual corrections; each group of files (video + companions) is shown and matched once
+7. **File Operations**: Moves or copies all files in a group to organized season directories with proper naming
+8. **NFO Generation**: Writes a `.nfo` metadata sidecar alongside each video file for Plex (not duplicated for companion files)
 
 ## Supported File Formats
 
-Video files with extensions: `.mp4`, `.mkv`, `.avi`, `.mov`, `.mpg`, `.mpeg`, `.m4v`, `.wmv`
+Video files with extensions: `.mp4`, `.mkv`, `.avi`, `.mov`, `.mpg`, `.mpeg`, `.m4v`, `.wmv`, `.ts`, `.mp2`, `.m2ts`, `.vob`, `.webm`
+
+Any file sharing a stem with a recognised video file is treated as a companion (subtitles, index files, etc.) and moved/copied alongside it automatically.
 
 ## File Naming Convention
 
@@ -208,11 +221,13 @@ Target Directory/
 ├── Season 2022/
 │   ├── S2022E01 Episode Title.mkv
 │   ├── S2022E01 Episode Title.nfo
-│   └── S2022E19 The Fire Within.mkv
+│   ├── S2022E19 The Fire Within.mkv
 │   └── S2022E19 The Fire Within.nfo
 ├── Season 2024/
 │   ├── S2024E06 Praying for Armageddon.mkv
-│   └── S2024E06 Praying for Armageddon.nfo
+│   ├── S2024E06 Praying for Armageddon.nfo
+│   ├── S2024E06 Praying for Armageddon.idx  ← companion file
+│   └── S2024E06 Praying for Armageddon.sub  ← companion file
 └── Season 2025/
     ├── S2025E11 The Contestant.mkv
     └── S2025E11 The Contestant.nfo
@@ -293,6 +308,13 @@ flake8 src/ tests/
 MIT License - see LICENSE file for details.
 
 ## Changelog
+
+### v0.1.21
+- Companion file handling: subtitle and sidecar files (`.srt`, `.sub`, `.idx`, etc.) sharing a stem with a video file are grouped with it and moved/copied together — the matching question is asked only once per group
+- Episode code detection now handles `02x03`-style codes (leading zeros on season, case-insensitive `x`, single-digit episode numbers)
+- Extended video format support: `.mp2`, `.m2ts`, `.vob`, `.webm` added
+- Manual episode entry now shows the TVDB title as a default in square brackets (`Title [Heavy Metal]:`); press Enter to accept, or type to override. Replaces the previous readline-based pre-fill which was unreliable in some terminals
+- Conflict detection is now extension-aware, preventing false clashes between video and companion files
 
 ### v0.1.20
 - Use standard CSV quoting (`csv.reader`/`csv.writer`) so fields containing commas are wrapped in double-quotes; replaces the fragile comma-space heuristic

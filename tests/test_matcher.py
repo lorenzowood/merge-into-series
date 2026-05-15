@@ -40,6 +40,57 @@ def test_extract_title_from_filename(sample_episodes):
     assert title3 == "The Fire Within"
 
 
+def test_find_media_groups():
+    """find_media_groups groups companion files with their video by stem."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        # Episode with video + subtitle companions
+        (temp_path / "01x01.mkv").touch()
+        (temp_path / "01x01.idx").touch()
+        (temp_path / "01x01.sub").touch()
+        # Episode with video only
+        (temp_path / "01x02.mp4").touch()
+        # NFO file alongside the first episode (should be excluded)
+        (temp_path / "01x01.nfo").touch()
+
+        matcher = EpisodeMatcher([])
+        groups = matcher.find_media_groups(str(temp_path))
+
+        # Two groups: one per episode stem
+        assert len(groups) == 2
+
+        # Find the 01x01 group — primary must be the video file
+        ep1_primary = next(p for p in groups if Path(p).stem == "01x01")
+        assert Path(ep1_primary).suffix == ".mkv"
+        ep1_names = {f.name for f in groups[ep1_primary]}
+        assert ep1_names == {"01x01.mkv", "01x01.idx", "01x01.sub"}  # .nfo excluded
+
+        # 01x02 group has only the mp4
+        ep2_primary = next(p for p in groups if Path(p).stem == "01x02")
+        assert groups[ep2_primary] == [temp_path / "01x02.mp4"]
+
+
+def test_find_media_groups_single_file_with_companions():
+    """When a single video file is given, companions in the same dir are included."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        (temp_path / "ep01.mkv").touch()
+        (temp_path / "ep01.srt").touch()
+        (temp_path / "ep01.idx").touch()
+        (temp_path / "ep02.mkv").touch()  # different episode, should not be included
+
+        matcher = EpisodeMatcher([])
+        groups = matcher.find_media_groups(str(temp_path / "ep01.mkv"))
+
+        assert len(groups) == 1
+        primary = next(iter(groups))
+        assert Path(primary).name == "ep01.mkv"
+        names = {f.name for f in groups[primary]}
+        assert names == {"ep01.mkv", "ep01.srt", "ep01.idx"}
+        assert "ep02.mkv" not in names
+
+
 def test_find_video_files():
     """Test finding video files."""
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -232,9 +283,12 @@ def test_extract_episode_code():
     assert matcher._extract_episode_code("series.s03e12.mkv") == (3, 12)
     assert matcher._extract_episode_code("Show S01E01 Title.mkv") == (1, 1)
 
-    # 1x01 format
+    # NxNN format (leading zeros, case-insensitive x, variable episode width)
     assert matcher._extract_episode_code("1x01.avi") == (1, 1)
     assert matcher._extract_episode_code("2x12.mkv") == (2, 12)
+    assert matcher._extract_episode_code("02x03.mkv") == (2, 3)   # leading zeros on season
+    assert matcher._extract_episode_code("01X01.mkv") == (1, 1)   # uppercase X
+    assert matcher._extract_episode_code("2x3.mkv") == (2, 3)     # single-digit episode
 
     # NofM format
     assert matcher._extract_episode_code("1of2.avi") == (None, 1)

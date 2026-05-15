@@ -11,11 +11,68 @@ from .tvdb_scraper import Episode
 class EpisodeMatcher:
     """Match filenames to episode data using fuzzy matching."""
 
-    VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.mpg', '.mpeg', '.m4v', '.wmv', '.ts'}
+    VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.mpg', '.mpeg', '.m4v', '.wmv', '.ts',
+                        '.mp2', '.m2ts', '.vob', '.webm'}
 
     def __init__(self, episodes: List[Episode]):
         self.episodes = episodes
         self.episode_by_title = {ep.title.lower(): ep for ep in episodes}
+
+    def find_media_groups(self, source_pattern: str) -> Dict[str, List[Path]]:
+        """Find media files grouped by stem, including subtitle/companion files.
+
+        For each video file found, all sibling files sharing the same stem are
+        collected into a group.  The video file is the group primary (its path
+        is the dict key).  When the source is a single non-video file its stem
+        is used to search for companions and the video companion (if any) becomes
+        the primary.
+
+        Returns {primary_path_str: [sorted list of all paths in the group]}.
+        .nfo files are excluded — they are generated fresh at the destination.
+        """
+        from collections import defaultdict
+        from glob import glob as glob_fn
+
+        source_path = Path(source_pattern)
+        seed_files: List[Path] = []
+
+        if source_path.is_file():
+            seed_files.append(source_path)
+        elif source_path.is_dir():
+            for f in sorted(source_path.rglob('*')):
+                if f.is_file() and f.suffix.lower() in self.VIDEO_EXTENSIONS:
+                    seed_files.append(f)
+        else:
+            for match in sorted(glob_fn(str(source_path))):
+                p = Path(match)
+                if p.is_file():
+                    seed_files.append(p)
+
+        seen_stems: set = set()
+        result: Dict[str, List[Path]] = {}
+
+        for seed in seed_files:
+            key = (seed.parent, seed.stem)
+            if key in seen_stems:
+                continue
+            seen_stems.add(key)
+
+            # Collect all siblings with the same stem (any extension except .nfo)
+            companions: List[Path] = []
+            try:
+                for f in sorted(seed.parent.iterdir()):
+                    if (f.is_file() and f.stem == seed.stem
+                            and not f.name.startswith('.')
+                            and f.suffix.lower() != '.nfo'):
+                        companions.append(f)
+            except PermissionError:
+                companions = [seed]
+
+            video_companions = [f for f in companions if f.suffix.lower() in self.VIDEO_EXTENSIONS]
+            primary = video_companions[0] if video_companions else seed
+            result[str(primary)] = companions
+
+        return result
 
     def find_video_files(self, source_pattern: str) -> List[Path]:
         """Find all video files matching the source pattern."""
@@ -91,8 +148,8 @@ class EpisodeMatcher:
         if m:
             return (int(m.group(1)), int(m.group(2)))
 
-        # 1x01 format (season up to 2 digits, episode exactly 2)
-        m = re.search(r'(?<!\d)(\d{1,2})x(\d{2})(?!\d)', stem)
+        # 1x01 / 01x01 / 02x03 format (season up to 2 digits, episode 1-3 digits, x case-insensitive)
+        m = re.search(r'(?<!\d)(\d{1,2})x(\d{1,3})(?!\d)', stem, re.IGNORECASE)
         if m:
             return (int(m.group(1)), int(m.group(2)))
 

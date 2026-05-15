@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import List, Dict, Optional
 
 
-VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.mpg', '.mpeg', '.m4v', '.wmv', '.ts'}
+VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.mpg', '.mpeg', '.m4v', '.wmv', '.ts',
+                    '.mp2', '.m2ts', '.vob', '.webm'}
 _EPISODE_CODE_RE = re.compile(r'S(\d+)E(\d+)', re.IGNORECASE)
 
 
@@ -70,11 +71,12 @@ class FileOperations:
 
         return success
 
-    def _find_existing_episode_file(self, target_dir: Path, episode_code: str) -> Optional[Path]:
-        """Find existing file with same SnnEnn designation."""
-        pattern = f"{episode_code}*"
-        matches = list(target_dir.glob(pattern))
-        return matches[0] if matches else None
+    def _find_existing_episode_file(self, target_dir: Path, episode_code: str, extension: str = '') -> Optional[Path]:
+        """Find existing file with same SnnEnn designation, optionally filtered by extension."""
+        for candidate in target_dir.glob(f"{episode_code}*"):
+            if not extension or candidate.suffix.lower() == extension.lower():
+                return candidate
+        return None
 
     def _files_are_identical(self, file1: Path, file2: Path) -> bool:
         """Compare files by size, then by content if sizes match."""
@@ -121,8 +123,8 @@ class FileOperations:
 
         # Handle conflict detection (unless overwrite flag is set)
         if not self.overwrite:
-            # Check for existing file with same episode code
-            existing_file = self._find_existing_episode_file(target_dir, episode.season_episode_code)
+            # Check for existing file with same episode code and same extension
+            existing_file = self._find_existing_episode_file(target_dir, episode.season_episode_code, source_path.suffix)
             if existing_file:
                 # Check if files are identical
                 if self._files_are_identical(source_path, existing_file):
@@ -139,7 +141,7 @@ class FileOperations:
         try:
             if self.dry_run:
                 print(f"[DRY RUN] Would {op_type} {source_path} -> {target_path}")
-                if self.generate_nfo:
+                if self.generate_nfo and source_path.suffix.lower() in VIDEO_EXTENSIONS:
                     print(f"[DRY RUN] Would write NFO file: {target_path.with_suffix('.nfo')}")
                 return True
 
@@ -154,7 +156,7 @@ class FileOperations:
                 print(f"Error: Unknown operation type: {op_type}")
                 return False
 
-            if self.generate_nfo:
+            if self.generate_nfo and source_path.suffix.lower() in VIDEO_EXTENSIONS:
                 self._write_nfo_file(target_path, episode)
 
             return True

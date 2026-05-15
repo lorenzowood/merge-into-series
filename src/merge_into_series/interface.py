@@ -1,23 +1,10 @@
 """Interactive user interface for episode matching and confirmation."""
 
-import readline
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 
 from .tvdb_scraper import Episode
 from .matcher import EpisodeMatcher
-
-
-def _input_prefilled(prompt: str, prefill: str = "") -> str:
-    """Prompt for input with an editable pre-filled default value."""
-    def hook():
-        readline.insert_text(prefill)
-        readline.redisplay()
-    readline.set_pre_input_hook(hook)
-    try:
-        return input(prompt)
-    finally:
-        readline.set_pre_input_hook(None)
 
 
 class InteractiveInterface:
@@ -160,7 +147,6 @@ class InteractiveInterface:
         return final_matches
 
     def _get_manual_episode_entry(self, matcher: Optional['EpisodeMatcher'] = None) -> Optional[Episode]:
-        """Get manual episode entry from user, pre-filling the title from metadata if known."""
         try:
             print("Manual entry:")
             season_str = input("Season (YYYY): ").strip()
@@ -173,18 +159,20 @@ class InteractiveInterface:
             season = int(season_str)
             episode_num = int(episode_str)
 
-            # Look up the episode in metadata to pre-fill the title
-            prefill = ""
+            metadata_title = None
             if matcher:
                 known = next(
-                    (ep for ep in matcher.episodes
-                     if ep.season == season and ep.episode == episode_num),
+                    (ep for ep in matcher.episodes if ep.season == season and ep.episode == episode_num),
                     None
                 )
                 if known:
-                    prefill = known.title
+                    metadata_title = known.title
 
-            title = _input_prefilled("Title: ", prefill).strip()
+            if metadata_title:
+                raw = input(f"Title [{metadata_title}]: ").strip()
+                title = raw if raw else metadata_title
+            else:
+                title = input("Title: ").strip()
 
             if not title:
                 print("Title is required.")
@@ -197,7 +185,7 @@ class InteractiveInterface:
             return None
 
     def confirm_operations(self, target_path: str, final_matches: Dict[str, Optional[Episode]],
-                          matcher: EpisodeMatcher) -> bool:
+                          matcher: EpisodeMatcher, file_groups: Optional[Dict] = None) -> bool:
         """Show final operations and get user confirmation."""
         operations_to_process = {k: v for k, v in final_matches.items() if v is not None}
 
@@ -206,8 +194,12 @@ class InteractiveInterface:
             return False
 
         print("\nReady to process:")
-        for filename, episode in operations_to_process.items():
-            print(f"{Path(filename).name} -> {episode.season_episode_code} {episode.title}")
+        for primary_str, episode in operations_to_process.items():
+            print(f"{Path(primary_str).name} -> {episode.season_episode_code} {episode.title}")
+            if file_groups:
+                for companion in file_groups.get(primary_str, []):
+                    if str(companion) != primary_str:
+                        print(f"  + {companion.name}")
 
         print(f"\nProcess to target {target_path} by:")
         print("1. Moving")
@@ -237,19 +229,23 @@ class InteractiveInterface:
                     print("\nOperation cancelled.")
                     return False
 
-        # Store operations for processing
+        # Store operations for all files in each group
         self.pending_operations = []
-        for filename, episode in operations_to_process.items():
-            new_filename = matcher.get_filename_for_episode(episode, filename)
+        for primary_str, episode in operations_to_process.items():
             season_dir = matcher.get_season_directory(episode)
+            all_files = file_groups.get(primary_str, [Path(primary_str)]) if file_groups else [Path(primary_str)]
 
-            self.pending_operations.append({
-                'source': filename,
-                'target_dir': Path(target_path) / season_dir,
-                'new_filename': new_filename,
-                'episode': episode,
-                'operation': operation_type
-            })
+            for source_file in all_files:
+                source_path = source_file if isinstance(source_file, Path) else Path(source_file)
+                new_filename = matcher.get_filename_for_episode(episode, str(source_path))
+
+                self.pending_operations.append({
+                    'source': str(source_path),
+                    'target_dir': Path(target_path) / season_dir,
+                    'new_filename': new_filename,
+                    'episode': episode,
+                    'operation': operation_type
+                })
 
         return True
 
