@@ -309,6 +309,9 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
+### v0.1.22
+- Fix specials (season 0) not being scraped or matched: TVDB labels them `0x10` rather than `S00E10`, and they may appear in `div.list-group-item` elements rather than `li`. The scraper now accepts both label formats and any element type with the `list-group-item` class
+
 ### v0.1.21
 - Companion file handling: subtitle and sidecar files (`.srt`, `.sub`, `.idx`, etc.) sharing a stem with a video file are grouped with it and moved/copied together — the matching question is asked only once per group
 - Episode code detection now handles `02x03`-style codes (leading zeros on season, case-insensitive `x`, single-digit episode numbers)

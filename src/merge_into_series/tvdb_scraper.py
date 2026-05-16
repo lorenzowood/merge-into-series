@@ -48,8 +48,8 @@ class TVDBScraper:
         soup = BeautifulSoup(response.content, 'html.parser')
         episodes = []
 
-        # Find all episode list items
-        episode_items = soup.find_all('li', class_='list-group-item')
+        # Find all episode list items (tag varies: li for regular, div for specials)
+        episode_items = soup.find_all(class_='list-group-item')
 
         for item in episode_items:
             try:
@@ -69,9 +69,11 @@ class TVDBScraper:
         if not episode_label:
             return None
 
-        # Extract season and episode numbers
+        # Extract season and episode numbers — handle both S01E05 and 0x10 formats
         label_text = episode_label.get_text(strip=True)
-        match = re.match(r'S(\d+)E(\d+)', label_text)
+        match = re.match(r'S(\d+)E(\d+)', label_text, re.IGNORECASE)
+        if not match:
+            match = re.match(r'(\d+)x(\d+)', label_text, re.IGNORECASE)
         if not match:
             return None
 

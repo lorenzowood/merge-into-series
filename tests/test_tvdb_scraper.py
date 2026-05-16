@@ -84,6 +84,53 @@ def test_scraper_success(mock_get):
     assert ep2.title == "The Contestant"
 
 
+@patch('merge_into_series.tvdb_scraper.requests.Session.get')
+def test_scraper_specials(mock_get):
+    """Test that specials using NxM label format (e.g. 0x10) are scraped."""
+    mock_response = Mock()
+    mock_response.content = b'''
+    <html>
+        <div class="list-group-item">
+            <h4 class="list-group-item-heading">
+                <span class="text-muted episode-label">0x10</span>
+                <a href="/series/are-you-being-served/episodes/9988776">
+                    A Special Episode
+                </a>
+            </h4>
+            <ul class="list-inline text-muted">
+                <li>December 25, 1976</li>
+            </ul>
+        </div>
+        <li class="list-group-item">
+            <h4 class="list-group-item-heading">
+                <span class="text-muted episode-label">S01E01</span>
+                <a href="/series/are-you-being-served/episodes/1122334">
+                    Pilot
+                </a>
+            </h4>
+        </li>
+    </html>
+    '''
+    mock_get.return_value = mock_response
+
+    scraper = TVDBScraper()
+    episodes = scraper.scrape_episodes('http://example.com')
+
+    assert len(episodes) == 2
+
+    special = episodes[0]
+    assert special.season == 0
+    assert special.episode == 10
+    assert special.title == "A Special Episode"
+    assert special.air_date == "December 25, 1976"
+    assert special.episode_id == "9988776"
+
+    regular = episodes[1]
+    assert regular.season == 1
+    assert regular.episode == 1
+    assert regular.title == "Pilot"
+
+
 def test_scraper_network_error():
     """Test handling of network errors."""
     # Test that network errors are handled gracefully by mocking at instance level
