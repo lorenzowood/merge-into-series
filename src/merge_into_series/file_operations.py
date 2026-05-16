@@ -174,7 +174,7 @@ class FileOperations:
         target = Path(target_path)
         episode_lookup = {(ep.season, ep.episode): ep for ep in episodes}
 
-        written = skipped = unmatched = 0
+        written = new_written = overwritten = skipped = unmatched = 0
 
         for video_file in sorted(target.rglob('*')):
             if not video_file.is_file() or video_file.suffix.lower() not in VIDEO_EXTENSIONS:
@@ -200,17 +200,25 @@ class FileOperations:
                 unmatched += 1
                 continue
 
+            existed = nfo_path.exists()
             if self.dry_run:
-                action = "overwrite" if nfo_path.exists() else "write"
+                action = "overwrite" if existed else "write"
                 print(f"[DRY RUN] Would {action} NFO: {nfo_path}")
             else:
-                action = "Overwrote" if nfo_path.exists() else "Wrote"
+                action = "Overwrote" if existed else "Wrote"
                 self._write_nfo_file(video_file, episode)
                 print(f"{action} NFO: {nfo_path.name}")
 
             written += 1
+            if existed:
+                overwritten += 1
+            else:
+                new_written += 1
 
-        print(f"NFO update: {written} written, {skipped} already present (skipped), {unmatched} unmatched")
+        if overwrite:
+            print(f"NFO update: {written} written ({new_written} new, {overwritten} overwritten), {unmatched} unmatched")
+        else:
+            print(f"NFO update: {written} written, {skipped} already present (skipped), {unmatched} unmatched")
         return True
 
     def check_target_writable(self, target_path: str) -> bool:

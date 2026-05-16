@@ -90,9 +90,9 @@ def test_scraper_specials(mock_get):
     mock_response = Mock()
     mock_response.content = b'''
     <html>
-        <div class="list-group-item">
+        <li class="list-group-item list-group-item-special">
             <h4 class="list-group-item-heading">
-                <span class="text-muted episode-label">0x10</span>
+                <small class="text-muted episode-label">SPECIAL 0x11</small>
                 <a href="/series/are-you-being-served/episodes/9988776">
                     A Special Episode
                 </a>
@@ -100,7 +100,7 @@ def test_scraper_specials(mock_get):
             <ul class="list-inline text-muted">
                 <li>December 25, 1976</li>
             </ul>
-        </div>
+        </li>
         <li class="list-group-item">
             <h4 class="list-group-item-heading">
                 <span class="text-muted episode-label">S01E01</span>
@@ -120,7 +120,7 @@ def test_scraper_specials(mock_get):
 
     special = episodes[0]
     assert special.season == 0
-    assert special.episode == 10
+    assert special.episode == 11
     assert special.title == "A Special Episode"
     assert special.air_date == "December 25, 1976"
     assert special.episode_id == "9988776"

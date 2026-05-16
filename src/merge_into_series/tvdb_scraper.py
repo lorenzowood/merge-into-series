@@ -64,8 +64,8 @@ class TVDBScraper:
 
     def _parse_episode_item(self, item) -> Optional[Episode]:
         """Parse a single episode list item."""
-        # Look for the episode label (e.g., "S2024E06")
-        episode_label = item.find('span', class_='episode-label')
+        # Look for the episode label (span for regular episodes, small for specials)
+        episode_label = item.find(class_='episode-label')
         if not episode_label:
             return None
 
@@ -73,7 +73,8 @@ class TVDBScraper:
         label_text = episode_label.get_text(strip=True)
         match = re.match(r'S(\d+)E(\d+)', label_text, re.IGNORECASE)
         if not match:
-            match = re.match(r'(\d+)x(\d+)', label_text, re.IGNORECASE)
+            # Handles "SPECIAL 0x11", "0x10", etc. — use search, not match, because of the prefix
+            match = re.search(r'(\d+)x(\d+)', label_text, re.IGNORECASE)
         if not match:
             return None
 

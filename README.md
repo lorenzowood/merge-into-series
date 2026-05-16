@@ -309,6 +309,10 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
+### v0.1.23
+- Fix specials actually not scraped even after v0.1.22: TVDB uses a `<small>` tag (not `<span>`) for the episode label on specials, and prefixes the code with "SPECIAL " (e.g. `SPECIAL 0x11`). The scraper now accepts any element with `class="episode-label"` and uses `re.search` instead of `re.match` for the `NxM` pattern so the prefix is ignored
+- Fix `--update-nfo all` summary always showing "0 already present (skipped)": the `all` mode now reports "N new, M overwritten" instead of the misleading skipped count
+
 ### v0.1.22
 - Fix specials (season 0) not being scraped or matched: TVDB labels them `0x10` rather than `S00E10`, and they may appear in `div.list-group-item` elements rather than `li`. The scraper now accepts both label formats and any element type with the `list-group-item` class
 
