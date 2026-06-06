@@ -290,6 +290,18 @@ flake8 src/ tests/
 - Internet connection (for TVDB data fetching)
 - Dependencies: `requests`, `beautifulsoup4`, `fuzzywuzzy`, `python-levenshtein`, `click`
 
+## Episode ordering and DVD rips
+
+The TVDB URL in your configuration determines which episode list is used for matching. The default (`allseasons/official`) reflects the standard broadcast order.
+
+If you are working with DVD rips, episode numbering may differ — for example, some two-part episodes are combined into a single entry on the DVD release, which shifts all subsequent episode numbers. Star Trek: Voyager is a known case of this.
+
+TheTVDB often has a separate **DVD order** listing. If you find episode numbers are consistently off, edit the relevant entry in `~/.merge-into-series.conf` and replace `/allseasons/official` with `/allseasons/dvd`:
+
+```
+Star_Trek:_Voyager,Star Trek -- Voyager (1995) {tvdb-74550},https://www.thetvdb.com/series/star-trek-voyager/allseasons/dvd
+```
+
 ## Browser Extension
 
 [merge-into-series-tvdb-plugin](https://github.com/lorenzowood/merge-into-series-tvdb-plugin) is a Chromium extension (Chrome / Brave) that adds a one-click `--add` command to every TheTVDB series page. Visit a series, click the generated command to copy it, then paste it in your terminal — no manual typing required.
