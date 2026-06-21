@@ -283,6 +283,13 @@ def test_extract_episode_code():
     assert matcher._extract_episode_code("series.s03e12.mkv") == (3, 12)
     assert matcher._extract_episode_code("Show S01E01 Title.mkv") == (1, 1)
 
+    # Series_N_-_NN (BBC-style season/episode in filename)
+    assert matcher._extract_episode_code(
+        "Earth_from_Space_Series_1_-_01._A_New_Perspective_p072n7qd_editorial.mp4"
+    ) == (1, 1)
+    assert matcher._extract_episode_code("Show_Series_2_-_12._Title.mp4") == (2, 12)
+    assert matcher._extract_episode_code("Show Series 3 - 05 Title.mkv") == (3, 5)
+
     # NxNN format (leading zeros, case-insensitive x, variable episode width)
     assert matcher._extract_episode_code("1x01.avi") == (1, 1)
     assert matcher._extract_episode_code("2x12.mkv") == (2, 12)
@@ -325,6 +332,23 @@ def test_match_episode_by_code_exact_season():
 
     matches = matcher.match_episode("s02e01.mkv")
     assert matches[0][0].title == "Season Two Opener"
+
+
+def test_match_episode_by_series_n_pattern():
+    """BBC-style Series_N_-_NN filenames match by season+episode code."""
+    episodes = [
+        Episode(1, 1, "A New Perspective"),
+        Episode(1, 2, "The White Marble"),
+        Episode(2, 1, "Season Two Opener"),
+    ]
+    matcher = EpisodeMatcher(episodes)
+
+    matches = matcher.match_episode(
+        "Earth_from_Space_Series_1_-_01._A_New_Perspective_p072n7qd_editorial.mp4"
+    )
+    assert len(matches) >= 1
+    assert matches[0][0].title == "A New Perspective"
+    assert matches[0][1] == 100
 
 
 def test_match_episode_by_code_episode_only():

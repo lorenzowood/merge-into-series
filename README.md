@@ -11,7 +11,7 @@ This is particularly useful for long-running series like BBC's "Storyville" (199
 ## Features
 
 - **Fuzzy matching**: Intelligently matches filenames to episode titles, even with typos or formatting differences
-- **Episode code detection**: Recognises `S01E01`, `01x01`, `02x03`, `1of6`, `ep1`, `part1` patterns and maps them directly to TVDB metadata
+- **Episode code detection**: Recognises `S01E01`, `01x01`, `02x03`, `Series_1_-_01`, `1of6`, `ep1`, `part1` patterns and maps them directly to TVDB metadata
 - **Companion file handling**: Subtitle and other sidecar files (`.srt`, `.sub`, `.idx`, …) are grouped with their video file and moved/copied together — no repeated matching questions per episode
 - **Interactive confirmation**: Review matches before processing with options to manually correct or skip files
 - **Flexible operations**: Choose between moving or copying files to preserve originals
@@ -194,7 +194,7 @@ All operations completed successfully!
 1. **Configuration Loading**: Reads series configuration from `~/.merge-into-series.conf`
 2. **Episode Data Fetching**: Scrapes episode information from the configured TVDB URL
 3. **File Discovery**: Finds video files matching the source pattern, grouping subtitle/companion files (`.srt`, `.sub`, `.idx`, etc.) with the video that shares their stem
-4. **Episode Code Detection**: Checks for `S01E01`, `01x01`/`02x03`, `1of6`, `ep1`, `part1` patterns and resolves them directly against TVDB data (score 100) before fuzzy title matching
+4. **Episode Code Detection**: Checks for `S01E01`, `01x01`/`02x03`, `Series_1_-_01` (BBC-style), `1of6`, `ep1`, `part1` patterns and resolves them directly against TVDB data (score 100) before fuzzy title matching
 5. **Fuzzy Matching**: Uses intelligent text matching to pair filenames with episode titles
 6. **Interactive Review**: Presents matches for user confirmation and allows manual corrections; each group of files (video + companions) is shown and matched once
 7. **File Operations**: Moves or copies all files in a group to organized season directories with proper naming
@@ -320,6 +320,9 @@ Star_Trek:_Voyager,Star Trek -- Voyager (1995) {tvdb-74550},https://www.thetvdb.
 MIT License - see LICENSE file for details.
 
 ## Changelog
+
+### v0.1.24
+- Episode code detection now recognises BBC-style `Series_N_-_NN` filenames (e.g. `Earth_from_Space_Series_1_-_01._A_New_Perspective.mp4` → season 1, episode 1)
 
 ### v0.1.23
 - Fix specials actually not scraped even after v0.1.22: TVDB uses a `<small>` tag (not `<span>`) for the episode label on specials, and prefixes the code with "SPECIAL " (e.g. `SPECIAL 0x11`). The scraper now accepts any element with `class="episode-label"` and uses `re.search` instead of `re.match` for the `NxM` pattern so the prefix is ignored

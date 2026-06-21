@@ -153,6 +153,11 @@ class EpisodeMatcher:
         if m:
             return (int(m.group(1)), int(m.group(2)))
 
+        # Series_1_-_01 (BBC-style: series/season number then episode number)
+        m = re.search(r'(?i)series[_\s]+(\d+)(?:[_\-\s]+)*?0*(\d+)', stem)
+        if m:
+            return (int(m.group(1)), int(m.group(2)))
+
         # 1of2 / 1 of 6 — episode N of M total
         m = re.search(r'\b(\d+)\s*of\s*\d+\b', stem, re.IGNORECASE)
         if m:
