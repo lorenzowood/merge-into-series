@@ -39,6 +39,16 @@ def _words_match_subsequence(query_words: List[str], series_words: List[str]) ->
     return True
 
 
+def _next_backup_path(config_path: Path) -> Path:
+    """Return the next unused numbered backup path (e.g. config.conf.1, config.conf.2)."""
+    n = 1
+    while True:
+        backup = Path(f"{config_path}.{n}")
+        if not backup.exists():
+            return backup
+        n += 1
+
+
 class Config:
     """Handle configuration file parsing and series lookup."""
 
@@ -126,6 +136,19 @@ class Config:
             if _words_match_subsequence(query_words, _normalize_to_words(cfg['name']))
         ]
 
+    def _backup_existing_config(self) -> Optional[Path]:
+        """Rename an existing config file to the next numbered backup.
+
+        Returns the backup path, or None if no file existed to back up.
+        """
+        if not self.config_path.exists():
+            return None
+
+        backup = _next_backup_path(self.config_path)
+        self.config_path.rename(backup)
+        print(f"Backed up existing configuration to {backup}")
+        return backup
+
     def add_series(self, name: str, path: str, url: str) -> bool:
         """Append a new series entry to the config file.
 
@@ -144,8 +167,11 @@ class Config:
         )
         line = buf.getvalue()
 
-        existing = self.config_path.read_text(encoding='utf-8') if self.config_path.exists() else ''
-        with open(self.config_path, 'a', encoding='utf-8') as f:
+        backup = self._backup_existing_config()
+        existing = backup.read_text(encoding='utf-8') if backup else ''
+        os.makedirs(self.config_path.parent, exist_ok=True)
+        with open(self.config_path, 'w', encoding='utf-8') as f:
+            f.write(existing)
             if existing and not existing.endswith('\n'):
                 f.write('\n')
             f.write(line)
@@ -172,6 +198,7 @@ Arena, Arena (1975) {tvdb-80379}, https://thetvdb.com/series/arena/allseasons/of
 # Other_Show, /Different/Location/Other Show, https://thetvdb.com/series/other-show/allseasons/official
 """
 
+        self._backup_existing_config()
         os.makedirs(self.config_path.parent, exist_ok=True)
         with open(self.config_path, 'w', encoding='utf-8') as f:
             f.write(example_content)

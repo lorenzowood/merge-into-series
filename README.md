@@ -147,7 +147,7 @@ merge-into-series --update-nfo=all storyville
 - `--update-nfo=missing|all`: Scan the target directory and generate NFO files for already-merged episodes, without touching video files. `missing` adds NFOs only where absent; `all` overwrites existing ones too. Cannot be combined with `SOURCE_PATTERN`.
 - `--overwrite, -o`: Overwrite existing files without prompting
 - `--add NAME DIR URL`: Add a new series entry to the configuration file and exit
-- `--create-config`: Create example configuration file and exit
+- `--create-config`: Create example configuration file and exit (renames any existing config to `.1`, `.2`, etc. first)
 - `--help`: Show help message
 
 ## Interactive Workflow Example
@@ -320,6 +320,9 @@ Star_Trek:_Voyager,Star Trek -- Voyager (1995) {tvdb-74550},https://www.thetvdb.
 MIT License - see LICENSE file for details.
 
 ## Changelog
+
+### v0.1.25
+- Back up existing config file to a numbered copy (`.1`, `.2`, …) before `--create-config` or `--add` writes to it
 
 ### v0.1.24
 - Episode code detection now recognises BBC-style `Series_N_-_NN` filenames (e.g. `Earth_from_Space_Series_1_-_01._A_New_Perspective.mp4` → season 1, episode 1)

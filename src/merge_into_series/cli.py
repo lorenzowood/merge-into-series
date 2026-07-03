@@ -68,7 +68,9 @@ def _resolve_series(config_handler, series_name: str, strict: bool, yes: bool):
 @click.option('--config', '-c', help='Path to configuration file')
 @click.option('--dry-run', '-n', is_flag=True, help='Show what would be done without actually doing it')
 @click.option('--threshold', '-t', default=80, help='Fuzzy matching threshold (0-100)')
-@click.option('--create-config', is_flag=True, help='Create example configuration file and exit')
+@click.option('--create-config', is_flag=True,
+              help='Create example configuration file and exit. '
+                   'If the config file already exists, it is renamed to .1, .2, etc. first.')
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite existing files without prompting')
 @click.option('--add', 'add_entry', nargs=3, type=str, metavar='NAME DIR URL',
               help='Add a new series to the configuration file and exit. '

@@ -338,3 +338,48 @@ def test_create_example_config():
         content = config_path.read_text()
         assert 'Storyville' in content
         assert 'Arena' in content
+
+
+def test_create_example_config_backs_up_existing(tmp_path, capsys):
+    """Creating an example config renames any existing file to a numbered backup."""
+    conf = tmp_path / "test.conf"
+    conf.write_text("My_Show, /tv/my, https://example.com/my\n")
+    config = Config(str(conf))
+    config.create_example_config()
+
+    backup = tmp_path / "test.conf.1"
+    assert backup.exists()
+    assert "My_Show" in backup.read_text()
+    assert "Storyville" in conf.read_text()
+    assert "Backed up existing configuration" in capsys.readouterr().out
+
+
+def test_create_example_config_uses_next_backup_number(tmp_path):
+    """Numbered backups increment when earlier backups already exist."""
+    conf = tmp_path / "test.conf"
+    conf.write_text("Show_A, /tv/a, https://example.com/a\n")
+    (tmp_path / "test.conf.1").write_text("old backup\n")
+
+    config = Config(str(conf))
+    config.create_example_config()
+
+    assert (tmp_path / "test.conf.2").exists()
+    assert "Show_A" in (tmp_path / "test.conf.2").read_text()
+    assert "Storyville" in conf.read_text()
+
+
+def test_add_series_backs_up_existing(tmp_path, capsys):
+    """Adding a series renames the existing config before rewriting it."""
+    conf = tmp_path / "test.conf"
+    conf.write_text("Storyville, /tv/storyville, https://example.com/storyville\n")
+    config = Config(str(conf))
+    result = config.add_series("Arena", "/tv/arena", "https://example.com/arena")
+
+    assert result is True
+    backup = tmp_path / "test.conf.1"
+    assert backup.exists()
+    assert backup.read_text().count("Storyville") == 1
+    text = conf.read_text()
+    assert text.count("Storyville") == 1
+    assert "Arena" in text
+    assert "Backed up existing configuration" in capsys.readouterr().out

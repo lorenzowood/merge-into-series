@@ -55,7 +55,6 @@ def test_create_config():
         result = runner.invoke(main, [
             '--config', str(config_path),
             '--create-config',
-            'dummy', 'dummy'  # Required but unused args
         ])
 
         assert result.exit_code == 0
